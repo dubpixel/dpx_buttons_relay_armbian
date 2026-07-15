@@ -1,0 +1,168 @@
+name: Release — Buttons USB Relay Images
+
+# Triggers:
+#   1. Manual dispatch (on-demand, any time)
+#   2. Daily schedule — auto-detects if the mirror has a version newer than
+#      the latest published release, and builds if so
+#
+# No Bitfocus credentials required. Version is read from the .tar.gz filename
+# in the 'buttons-deb-mirror' GitHub Release.
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force build even if this version was already released'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
+
+  schedule:
+    - cron: '0 6 * * *'
+
+jobs:
+  # ── Check if the mirror has a version we haven't built yet ─────────────────
+  check-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should-build: ${{ steps.compare.outputs.should-build }}
+      buttons-version: ${{ steps.mirror.outputs.buttons-version }}
+
+    steps:
+      - name: Read version from mirror release asset filename
+        id: mirror
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Get the .tar.gz asset name from the mirror release
+          ASSET=$(gh release view buttons-deb-mirror \
+            --repo "${{ github.repository }}" \
+            --json assets \
+            --jq '[.assets[].name | select(endswith(".tar.gz"))] | first')
+
+          if [[ -z "$ASSET" || "$ASSET" == "null" ]]; then
+            echo "ERROR: No .tar.gz asset found in the 'buttons-deb-mirror' release."
+            echo "Run: ./scripts/upload-mirror.sh <path-to-tarball>"
+            exit 1
+          fi
+
+          # Extract version from: bitfocus-buttons-usb-relay-headless_0.1.0-beta.4_arm64.tar.gz
+          VERSION=$(echo "$ASSET" | sed 's/.*_\(.*\)_arm64.tar.gz/\1/')
+
+          echo "Mirror asset   : $ASSET"
+          echo "Mirror version : $VERSION"
+          echo "buttons-version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Compare against latest published release
+        id: compare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ github.event.inputs.force || 'false' }}
+        run: |
+          MIRROR_VERSION="${{ steps.mirror.outputs.buttons-version }}"
+          EXPECTED_TAG="buttons-usb-relay-${MIRROR_VERSION}"
+
+          LATEST_TAG=$(gh release list \
+            --repo "${{ github.repository }}" \
+            --exclude-pre-releases \
+            --exclude-drafts \
+            --limit 20 \
+            --json tagName \
+            --jq '[.[].tagName | select(startswith("buttons-usb-relay-"))] | first' \
+            2>/dev/null || echo "")
+
+          echo "Mirror version : ${MIRROR_VERSION}"
+          echo "Latest release : ${LATEST_TAG}"
+          echo "Expected tag   : ${EXPECTED_TAG}"
+
+          if [[ "$FORCE" == "true" ]]; then
+            echo "Force flag set — building regardless."
+            echo "should-build=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$LATEST_TAG" == "$EXPECTED_TAG" ]]; then
+            echo "Already released. Nothing to do."
+            echo "should-build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New version detected — triggering build."
+            echo "should-build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── Matrix build across all supported boards ──────────────────────────────
+  build:
+    needs: check-version
+    if: needs.check-version.outputs.should-build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        board:
+          - orangepizero
+          - orangepizero2
+          - orangepizero2w
+          - orangepizero3
+    uses: ./.github/workflows/armbian-builder.yaml
+    with:
+      armbian-board: ${{ matrix.board }}
+    permissions:
+      contents: read
+
+  # ── Create GitHub Release with all board images ───────────────────────────
+  release:
+    needs: [check-version, build]
+    if: needs.check-version.outputs.should-build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: List release assets
+        run: ls -lh release-assets/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check-version.outputs.buttons-version }}
+        run: |
+          TAG="buttons-usb-relay-${VERSION}"
+
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "Buttons USB Relay ${VERSION}" \
+            --notes "## Bitfocus Buttons USB Relay ${VERSION}
+
+Flash-ready Armbian images with [Bitfocus Buttons USB Relay](https://bitfocus.io/buttons) (headless) pre-installed.
+Plug in your Stream Deck, power on — the relay is already running.
+
+### Boards included
+$(for f in release-assets/*.img.gz; do
+  B=$(basename "$f" | sed 's/-buttons-usb-relay-.*//')
+  echo "- \`${B}\` — \`$(basename $f)\`"
+done)
+
+### Flash it
+\`\`\`bash
+# macOS / Linux
+gunzip -c <image>.img.gz | sudo dd of=/dev/sdX bs=4M status=progress
+\`\`\`
+Or use [Balena Etcher](https://etcher.balena.io/) — it reads \`.gz\` directly, no extraction needed.
+
+### First boot
+1. Insert SD card, connect Stream Deck via USB, power on
+2. \`bitfocus-buttons-usb-relay\` starts automatically
+3. Open **Bitfocus Buttons** — relay appears via mDNS on port \`3040\`
+
+### Troubleshoot (SSH in)
+\`\`\`bash
+systemctl status bitfocus-buttons-usb-relay
+journalctl -u bitfocus-buttons-usb-relay -f
+\`\`\`" \
+            release-assets/*.img.gz

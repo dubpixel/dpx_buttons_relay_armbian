@@ -1,0 +1,137 @@
+name: Build Armbian + Buttons USB Relay Image
+
+# Reusable by release-action.yaml, or triggered manually for a single board.
+# No Bitfocus credentials required — pulls the package from the repo's
+# 'buttons-deb-mirror' GitHub Release using the built-in GITHUB_TOKEN.
+on:
+  workflow_dispatch:
+    inputs:
+      armbian-board:
+        description: 'Armbian board target'
+        required: true
+        default: 'orangepizero3'
+        type: choice
+        options:
+          - orangepizero
+          - orangepizero2
+          - orangepizero2w
+          - orangepizero3
+          - bananapim2zero
+          - nanopir4s
+          - orangepi5
+          - rockpi4b
+  workflow_call:
+    inputs:
+      armbian-board:
+        description: 'Armbian board target'
+        required: true
+        type: string
+    outputs:
+      artifact-name:
+        description: 'Name of the uploaded artifact'
+        value: ${{ jobs.build.outputs.artifact-name }}
+      buttons-version:
+        description: 'Buttons version installed in this image'
+        value: ${{ jobs.build.outputs.buttons-version }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      artifact-name: ${{ steps.meta.outputs.artifact-name }}
+      buttons-version: ${{ steps.meta.outputs.buttons-version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ARM emulation is required to chroot into the ARM64 Armbian image
+      - name: Install QEMU user-static
+        run: sudo apt-get install -y qemu-user-static
+
+      # ── Download Bitfocus Buttons package from mirror ──────────────────────
+      - name: Download Buttons USB Relay package from mirror
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACTS_DIR: artifacts
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash scripts/download-buttons.sh
+
+      - name: Read version and set metadata
+        id: meta
+        run: |
+          VERSION=$(cat artifacts/buttons-version.txt)
+          BOARD="${{ inputs.armbian-board }}"
+          ARTIFACT_NAME="${BOARD}-buttons-usb-relay-${VERSION}"
+          echo "buttons-version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "artifact-name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+          echo "Board   : ${BOARD}"
+          echo "Version : ${VERSION}"
+          echo "Artifact: ${ARTIFACT_NAME}"
+
+      # ── Build base Armbian image ────────────────────────────────────────────
+      - name: Clone Armbian build framework
+        run: git clone --depth=1 https://github.com/armbian/build build
+
+      - name: Build Armbian image
+        run: |
+          sudo ./build/compile.sh build \
+            BOARD=${{ inputs.armbian-board }} \
+            BRANCH=current \
+            RELEASE=noble \
+            BUILD_MINIMAL=yes \
+            KERNEL_CONFIGURE=no \
+            COMPRESS_OUTPUTIMAGE=no
+          mv build/output/images/*.img build/output/images/armbian.img
+
+      # ── Customize image with Packer ────────────────────────────────────────
+      - name: Install Packer
+        run: |
+          wget -qO - https://apt.releases.hashicorp.com/gpg \
+            | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+            https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
+            | sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt-get update -q && sudo apt-get install -y packer
+
+      - name: Initialize Packer plugins
+        run: sudo packer init buttons-usb-relay.pkr.hcl
+
+      - name: Build customized image with Packer
+        run: |
+          sudo packer build \
+            -var "url=build/output/images/armbian.img" \
+            -var "build=$(cat artifacts/buttons-version.txt)" \
+            -var "deb_path=artifacts/bitfocus-buttons-usb-relay-headless.deb" \
+            buttons-usb-relay.pkr.hcl
+
+      # ── Compress and upload ────────────────────────────────────────────────
+      - name: Install zerofree
+        run: sudo apt-get install -y zerofree
+
+      - name: Zero free space and compress image
+        run: |
+          IMG="output-buttonspi/armbian-buttons-usb-relay.img"
+          VERSION=$(cat artifacts/buttons-version.txt)
+          BOARD="${{ inputs.armbian-board }}"
+          FINAL_NAME="${BOARD}-buttons-usb-relay-${VERSION}.img"
+
+          LOOP=$(sudo losetup -fP --show "$IMG")
+          ROOT_PART="${LOOP}p1"
+          sudo e2fsck -fy "$ROOT_PART" || true
+          sudo zerofree "$ROOT_PART"
+          sudo losetup -d "$LOOP"
+
+          mv "$IMG" "$FINAL_NAME"
+          gzip -n "$FINAL_NAME"
+          echo "COMPRESSED_IMAGE=${FINAL_NAME}.gz" >> "$GITHUB_ENV"
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.artifact-name }}
+          path: ${{ env.COMPRESSED_IMAGE }}
+          retention-days: 7
+          if-no-files-found: error
