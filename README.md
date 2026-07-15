@@ -395,6 +395,196 @@ Distributed under the [LICENSE_TYPE] License. See `LICENSE.txt` for more informa
 * [Bitfocus](https://bitfocus.io/) — creators of Buttons and Companion
 * [Armbian](https://www.armbian.com/) — Linux for ARM SBCs
 
+---
+
+<details>
+<summary><h3>🔧 How to replicate this pattern for any software</h3></summary>
+
+This project uses a two-stage pipeline to produce flash-ready images for ARM SBCs. Here's the general recipe so you can adapt it for any headless software you want to bake into an Armbian image.
+
+---
+
+#### The pattern
+
+```
+GitHub Actions runner (x86)
+  └─ 1. Build Armbian base image for target board
+  └─ 2. Packer chroots into image via QEMU
+       └─ copies your software in
+       └─ installs it
+       └─ configures it (hostname, services, etc.)
+  └─ 3. Compress and publish the image
+```
+
+No cross-compilation. No physical board needed. Runs entirely on standard x86 CI runners.
+
+---
+
+#### What you need
+
+- Your software packaged as a `.deb`, or an install script that runs inside a Debian/Ubuntu chroot
+- A GitHub repo with Actions enabled
+- [HashiCorp Packer](https://www.packer.io/) — free, open source
+
+---
+
+#### Step 1 — Write your Packer HCL file
+
+Create `your-software.pkr.hcl`:
+
+```hcl
+packer {
+  required_plugins {
+    arm-image = {
+      version = "0.2.7"
+      source  = "github.com/solo-io/arm-image"
+    }
+  }
+}
+
+variable "url"      { type = string }  # path to Armbian .img
+variable "deb_path" { type = string }  # path to your .deb
+
+source "arm-image" "armbian" {
+  iso_checksum    = "none"
+  iso_url         = var.url
+  target_image_size = 5000000000        # 5 GB — adjust as needed
+  output_filename = "output/image.img"
+  qemu_binary     = "qemu-aarch64-static"
+  image_mounts    = ["/"]
+
+  # Required for DNS to work inside the chroot
+  additional_chroot_mounts = [["bind", "/run/systemd", "/run/systemd"]]
+}
+
+build {
+  sources = ["source.arm-image.armbian"]
+
+  # Copy your software into the image
+  provisioner "file" {
+    source      = var.deb_path
+    destination = "/tmp/your-software.deb"
+  }
+
+  # Copy your install script
+  provisioner "file" {
+    source      = "scripts/install.sh"
+    destination = "/tmp/install.sh"
+  }
+
+  # System config (hostname, first-login, SSH)
+  provisioner "shell" {
+    inline = [
+      "rm -f /root/.not_logged_in_yet",
+      "echo your-device-name > /etc/hostname",
+      "systemctl disable ssh || true",
+    ]
+  }
+
+  # Install your software (runs as root)
+  provisioner "shell" {
+    execute_command = "chmod +x {{ .Path }}; {{ .Vars }} su root -c {{ .Path }}"
+    inline_shebang  = "/bin/bash -e"
+    inline          = ["chmod +x /tmp/install.sh", "/tmp/install.sh"]
+  }
+}
+```
+
+---
+
+#### Step 2 — Write your install script
+
+`scripts/install.sh` runs **inside the chroot** as root. Treat it like a normal Debian post-install script:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies
+apt-get update -q
+apt-get install -y --no-install-recommends avahi-daemon libusb-1.0-0
+
+# Install your package
+dpkg -i /tmp/your-software.deb || apt-get install -f -y
+
+# Enable services
+systemctl enable your-service
+systemctl enable avahi-daemon
+
+# Cleanup
+apt-get clean
+```
+
+---
+
+#### Step 3 — Wire it into GitHub Actions
+
+```yaml
+- name: Install QEMU (required for ARM chroot on x86 runners)
+  run: sudo apt-get install -y qemu-user-static
+
+- name: Build Armbian base image
+  run: |
+    git clone --depth=1 https://github.com/armbian/build build
+    sudo ./build/compile.sh build \
+      BOARD=your-board-id \
+      BRANCH=current \
+      RELEASE=noble \
+      BUILD_MINIMAL=yes \
+      KERNEL_CONFIGURE=no \
+      COMPRESS_OUTPUTIMAGE=no
+    sudo mv build/output/images/*.img build/output/images/armbian.img
+
+- name: Install Packer
+  run: |
+    wget -qO - https://apt.releases.hashicorp.com/gpg \
+      | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+      https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
+      | sudo tee /etc/apt/sources.list.d/hashicorp.list
+    sudo apt-get update -q && sudo apt-get install -y packer
+
+- name: Run Packer
+  run: |
+    sudo packer init your-software.pkr.hcl
+    sudo packer build \
+      -var "url=build/output/images/armbian.img" \
+      -var "deb_path=path/to/your-software.deb" \
+      your-software.pkr.hcl
+
+- name: Compress image
+  run: |
+    sudo apt-get install -y zerofree
+    IMG="output/image.img"
+    LOOP=$(sudo losetup -fP --show "$IMG")
+    sudo e2fsck -fy "${LOOP}p1" || true
+    sudo zerofree "${LOOP}p1"
+    sudo losetup -d "$LOOP"
+    gzip -n "$IMG"
+```
+
+---
+
+#### Key things to know
+
+| Thing | Why it matters |
+|---|---|
+| `qemu-user-static` must be installed **before** Packer runs | Packer uses it to emulate ARM64 instructions inside the chroot on your x86 runner |
+| `additional_chroot_mounts = [["bind", "/run/systemd", "/run/systemd"]]` | Without this, DNS resolution inside the chroot fails and `apt-get` can't reach package servers |
+| All `packer` commands need `sudo` | The `arm-image` plugin creates loop devices and bind mounts — root required |
+| `sudo mv` the Armbian output | The Armbian build framework runs as root inside Docker, so output files are owned by root |
+| `zerofree` before `gzip` | Zeros unused filesystem blocks so the image compresses 3-5x smaller |
+| Set `target_image_size` generously | Packer will fail if the image fills up during install. 5 GB is safe for most software |
+
+---
+
+#### Supported boards
+
+Any board in [Armbian's supported hardware list](https://www.armbian.com/download/) works. Look up the board's `BOARD=` ID from the Armbian docs or the [supported boards list](https://github.com/armbian/build/blob/main/config/boards).
+
+</details>
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- MARKDOWN LINKS & IMAGES -->
