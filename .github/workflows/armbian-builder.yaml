@@ -353,8 +353,10 @@ jobs:
           sudo zerofree "$ROOT_PART"
           sudo losetup -d "$LOOP"
 
-          mv "$IMG" "$FINAL_NAME"
-          gzip -n "$FINAL_NAME"
+          sudo mv "$IMG" "$FINAL_NAME"
+          sudo gzip -n "$FINAL_NAME"
+          # Hand ownership back to the runner so upload-artifact can read the file
+          sudo chown runner:runner "${FINAL_NAME}.gz"
           echo "COMPRESSED_IMAGE=${FINAL_NAME}.gz" >> "$GITHUB_ENV"
 
       - name: Upload image artifact
