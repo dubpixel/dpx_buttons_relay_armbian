@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       armbian-board:
-        description: 'Armbian board target'
+        description: 'Armbian board (pick from list, or type any ID in custom-board below)'
         required: true
-        default: 'orangepizero3'
+        default: 'rockpi-s'
         type: choice
         options:
           - aml-a311d-cc
@@ -249,6 +249,11 @@ on:
           - xiaomi-umi
           - youyeetoo-r1-v3
           - zeropi
+      custom-board:
+        description: 'Any Armbian board ID not in the list above (overrides the dropdown)'
+        required: false
+        default: ''
+        type: string
   workflow_call:
     inputs:
       armbian-board:
@@ -279,6 +284,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Resolve board — custom-board overrides the dropdown if set
+      - name: Resolve target board
+        id: board
+        run: |
+          CUSTOM="${{ inputs.custom-board }}"
+          SELECTED="${{ steps.board.outputs.board }}"
+          BOARD="${CUSTOM:-$SELECTED}"
+          echo "board=${BOARD}" >> "$GITHUB_OUTPUT"
+          echo "Building for board: ${BOARD}"
+
       # ARM emulation is required to chroot into the ARM64 Armbian image
       - name: Install QEMU user-static
         run: sudo apt-get install -y qemu-user-static
@@ -296,7 +311,7 @@ jobs:
         run: |
           VERSION=$(cat artifacts/buttons-version.txt)
           BUILD_VERSION=$(cat VERSION)
-          BOARD="${{ inputs.armbian-board }}"
+          BOARD="${{ steps.board.outputs.board }}"
           ARTIFACT_NAME="${BOARD}-buttons-usb-relay-${VERSION}-build${BUILD_VERSION}"
           echo "buttons-version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "artifact-name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
@@ -312,7 +327,7 @@ jobs:
       - name: Build Armbian image
         run: |
           sudo ./build/compile.sh build \
-            BOARD=${{ inputs.armbian-board }} \
+            BOARD=${{ steps.board.outputs.board }} \
             BRANCH=current \
             RELEASE=noble \
             BUILD_MINIMAL=yes \
@@ -353,7 +368,7 @@ jobs:
           IMG="output-buttonspi/armbian-buttons-usb-relay.img"
           VERSION=$(cat artifacts/buttons-version.txt)
           BUILD_VERSION=$(cat VERSION)
-          BOARD="${{ inputs.armbian-board }}"
+          BOARD="${{ steps.board.outputs.board }}"
           FINAL_NAME="${BOARD}-buttons-usb-relay-${VERSION}-build${BUILD_VERSION}.img"
 
           LOOP=$(sudo losetup -fP --show "$IMG")

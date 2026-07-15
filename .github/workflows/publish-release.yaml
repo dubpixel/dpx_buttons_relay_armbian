@@ -1,0 +1,102 @@
+name: Publish Release from Existing Build
+
+# Use this when the build jobs succeeded but the release job failed,
+# or when you want to re-publish a release from a previous run's artifacts.
+#
+# Usage:
+#   gh workflow run publish-release.yaml \
+#     --repo dubpixel/dpx_buttons_relay_armbian \
+#     -f run-id=29445422833
+#
+# Or via GitHub web UI:
+#   Actions → Publish Release from Existing Build → Run workflow → enter run ID
+
+on:
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: 'GitHub Actions run ID that produced the artifacts (find in the Actions tab URL)'
+        required: true
+        type: string
+      overwrite:
+        description: 'Delete and recreate the release if it already exists'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download artifacts from specified run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release-assets
+          gh run download "${{ inputs.run-id }}" \
+            --repo "${{ github.repository }}" \
+            --dir release-assets
+          echo "Downloaded artifacts:"
+          ls -lh release-assets/
+
+      - name: Resolve version from artifact filenames
+        id: meta
+        run: |
+          # Filename: rockpi-s-buttons-usb-relay-0.1.0-beta.4-build0.2.0.img.gz
+          FIRST=$(ls release-assets/*.img.gz 2>/dev/null | head -1)
+          if [[ -z "$FIRST" ]]; then
+            echo "ERROR: No .img.gz files found in artifacts"
+            exit 1
+          fi
+          BASENAME=$(basename "$FIRST" .img.gz)
+          # Extract buttons version and build version from filename
+          BUTTONS_VERSION=$(echo "$BASENAME" | grep -oP '(?<=buttons-usb-relay-)[^-]+(\.[^-]+)+-beta\.\d+|(?<=buttons-usb-relay-)[0-9]+\.[0-9]+\.[0-9]+[^-]*' | head -1 || echo "")
+          BUILD_VERSION=$(echo "$BASENAME" | grep -oP '(?<=build)[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
+          # Fallback: parse from VERSION file
+          [[ -z "$BUILD_VERSION" ]] && BUILD_VERSION=$(cat VERSION 2>/dev/null || echo "unknown")
+          # Simpler extraction: everything between "relay-" and "-build"
+          BUTTONS_VERSION=$(echo "$BASENAME" | sed 's/.*buttons-usb-relay-//' | sed 's/-build.*//')
+          echo "buttons-version=${BUTTONS_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "build-version=${BUILD_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Buttons version : ${BUTTONS_VERSION}"
+          echo "Build version   : ${BUILD_VERSION}"
+
+      - name: Delete existing release if overwrite enabled
+        if: inputs.overwrite == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.buttons-version }}
+        run: |
+          TAG="buttons-usb-relay-${VERSION}"
+          gh release delete "$TAG" \
+            --repo "${{ github.repository }}" \
+            --cleanup-tag --yes 2>/dev/null || true
+
+      - name: Generate release notes
+        env:
+          VERSION: ${{ steps.meta.outputs.buttons-version }}
+          BUILD_VERSION: ${{ steps.meta.outputs.build-version }}
+        run: |
+          bash scripts/generate-release-notes.sh "$VERSION" release-assets "$BUILD_VERSION"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.buttons-version }}
+        run: |
+          TAG="buttons-usb-relay-${VERSION}"
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "Buttons USB Relay ${VERSION}" \
+            --notes-file /tmp/release-notes.md \
+            release-assets/*.img.gz
+          echo "Release published: https://github.com/${{ github.repository }}/releases/tag/${TAG}"
