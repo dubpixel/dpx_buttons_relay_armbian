@@ -255,6 +255,9 @@ on:
         description: 'Armbian board target'
         required: true
         type: string
+    secrets:
+      ROOT_PASSWORD:
+        required: false
     outputs:
       artifact-name:
         description: 'Name of the uploaded artifact'
