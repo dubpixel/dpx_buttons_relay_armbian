@@ -136,6 +136,10 @@ jobs:
         run: |
           TAG="buttons-usb-relay-${VERSION}"
           bash scripts/generate-release-notes.sh "$VERSION" release-assets
+
+          # Delete existing release with this tag if present (handles force rebuilds)
+          gh release delete "$TAG" --repo "${{ github.repository }}" --yes --cleanup-tag 2>/dev/null || true
+
           gh release create "$TAG" \
             --repo "${{ github.repository }}" \
             --title "Buttons USB Relay ${VERSION}" \
