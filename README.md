@@ -188,7 +188,7 @@ gunzip -c rockpi-s-buttons-usb-relay-0.1.0-beta.4.img.gz \
 
 **That's it.** Open **Bitfocus Buttons** on your computer — the relay appears automatically under discovered devices. No configuration needed.
 
-> The device hostname is `buttons-usb-relay.local` and it listens on port `3040` via mDNS.
+> The device hostname is `buttons-usb-relay.local`, port `3040` via mDNS. SSH is **on** — `root` / `1234`.
 
 ---
 
@@ -268,22 +268,15 @@ Replace `orangepizero3` with any board ID from the [Armbian hardware list](https
 
 ### SSH into the device
 
-SSH is disabled by default (headless appliance). To enable it:
+SSH is **enabled by default**. As soon as the board is on the network:
 
-```bash
-# If you have a monitor/keyboard connected:
-sudo systemctl enable --now ssh
-
-# Default Armbian credentials:
-# User:     root
-# Password: 1234  (forced change on first console login)
-```
-
-Once enabled:
 ```bash
 ssh root@buttons-usb-relay.local
-# or by IP if mDNS isn't resolving on your network
+# Password: 1234
+# Armbian forces a password change on first login
 ```
+
+If mDNS isn't resolving, find the IP from your router and use that directly.
 
 ---
 

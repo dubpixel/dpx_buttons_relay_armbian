@@ -66,7 +66,7 @@ Automated GitHub Actions build pipeline that produces flash-ready `.img.gz` Armb
 - **Packer over Armbian userpatches:** Image customization happens post-build via Packer chroot, not via Armbian's native overlay system. This decouples the Armbian build from the Buttons install — the Armbian image can be rebuilt independently, and Packer applies the same customization regardless of Armbian version changes.
 - **Version detected from asset filename:** The release workflow determines the Buttons version by parsing the `.tar.gz` filename in the mirror release (e.g., `bitfocus-buttons-usb-relay-headless_0.1.0-beta.4_arm64.tar.gz` → `0.1.0-beta.4`). No API call required. Filename is the source of truth.
 - **Orange Pi Zero family as default matrix:** Same boards as the reference project (`companion-satellite-armbian`). They're cheap, low-power, well-supported by Armbian, and ideal for a dedicated USB relay appliance.
-- **SSH disabled in image:** The device is a headless appliance. SSH off by default reduces attack surface. Re-enable manually via console if needed.
+- **SSH enabled by default:** Enabled so hardware testing and debugging don't require a serial adapter. Credentials: `root` / `1234` (Armbian forces password change on first login).
 
 ### Gotchas & Landmines
 

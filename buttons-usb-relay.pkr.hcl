@@ -61,8 +61,9 @@ build {
       "echo buttons-usb-relay > /etc/hostname",
       "sed -i \"s/127.0.1.1.*$CURRENT_HOSTNAME/127.0.1.1\\tbuttons-usb-relay/g\" /etc/hosts",
 
-      # Disable SSH (device is headless appliance; re-enable manually if needed)
-      "systemctl disable ssh || true",
+      # SSH enabled for remote access and debugging
+      # Login: root / 1234  (Armbian forces a password change on first login)
+      "systemctl enable ssh || true",
     ]
   }
 
