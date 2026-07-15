@@ -99,9 +99,6 @@ jobs:
       matrix:
         board:
           - rockpi-s
-          - rockpi-4b
-          - rockpi-4bplus
-          - rock-s0
     uses: ./.github/workflows/armbian-builder.yaml
     with:
       armbian-board: ${{ matrix.board }}
