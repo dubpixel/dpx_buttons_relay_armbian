@@ -102,7 +102,12 @@ Edit `.github/workflows/release-action.yaml` under `matrix.board`, add the Armbi
 gh release view buttons-deb-mirror --repo dubpixel/dpx_buttons_armbian --json assets --jq '.assets[].name'
 ```
 
-### Development Philosophy
+### Reference
+
+**Source of truth for Buttons USB Relay installation and configuration:**
+https://support.bitfocus.io/hc/en-us/articles/33855997471890-Bitfocus-Buttons-USB-Relay-Raspberry-Pi
+
+If anything about the install process, service name, config file location, or port changes — check here first before assuming the code is wrong.
 
 This is broadcast infrastructure tooling — it runs 24/7 as a headless appliance in a production AV environment. Reliability and simplicity trump features. The image must boot clean, start the service automatically, and be discoverable via mDNS with zero configuration. Keep the build pipeline transparent and auditable: no magic, no hidden credentials, no framework abstractions that obscure what's actually happening inside the image.
 

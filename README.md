@@ -387,6 +387,7 @@ Distributed under the [LICENSE_TYPE] License. See `LICENSE.txt` for more informa
 * [elliotmatson/companion-satellite-armbian](https://github.com/elliotmatson/companion-satellite-armbian) — architecture and workflow pattern this project is based on
 * [Bitfocus](https://bitfocus.io/) — creators of Buttons and Companion
 * [Armbian](https://www.armbian.com/) — Linux for ARM SBCs
+* [Bitfocus Buttons USB Relay — Official Docs](https://support.bitfocus.io/hc/en-us/articles/33855997471890-Bitfocus-Buttons-USB-Relay-Raspberry-Pi) — source of truth for installation, service management, and configuration
 
 ---
 
