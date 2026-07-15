@@ -284,16 +284,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Resolve board — custom-board overrides the dropdown if set
-      - name: Resolve target board
-        id: board
-        run: |
-          CUSTOM="${{ inputs.custom-board }}"
-          SELECTED="${{ steps.board.outputs.board }}"
-          BOARD="${CUSTOM:-$SELECTED}"
-          echo "board=${BOARD}" >> "$GITHUB_OUTPUT"
-          echo "Building for board: ${BOARD}"
-
       # ARM emulation is required to chroot into the ARM64 Armbian image
       - name: Install QEMU user-static
         run: sudo apt-get install -y qemu-user-static
@@ -311,10 +301,13 @@ jobs:
         run: |
           VERSION=$(cat artifacts/buttons-version.txt)
           BUILD_VERSION=$(cat VERSION)
-          BOARD="${{ steps.board.outputs.board }}"
+          CUSTOM="${{ inputs.custom-board }}"
+          SELECTED="${{ inputs.armbian-board }}"
+          BOARD="${CUSTOM:-$SELECTED}"
           ARTIFACT_NAME="${BOARD}-buttons-usb-relay-${VERSION}-build${BUILD_VERSION}"
           echo "buttons-version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "artifact-name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+          echo "board=${BOARD}" >> "$GITHUB_OUTPUT"
           echo "Board   : ${BOARD}"
           echo "Version : ${VERSION}"
           echo "Build   : ${BUILD_VERSION}"
@@ -326,8 +319,12 @@ jobs:
 
       - name: Build Armbian image
         run: |
-          sudo ./build/compile.sh build \
-            BOARD=${{ steps.board.outputs.board }} \
+          CUSTOM="${{ inputs.custom-board }}"
+          SELECTED="${{ inputs.armbian-board }}"
+          TARGET_BOARD="${CUSTOM:-$SELECTED}"
+          echo "==> Building board: ${TARGET_BOARD}"
+          ./build/compile.sh build \
+            BOARD="${TARGET_BOARD}" \
             BRANCH=current \
             RELEASE=noble \
             BUILD_MINIMAL=yes \
@@ -368,7 +365,9 @@ jobs:
           IMG="output-buttonspi/armbian-buttons-usb-relay.img"
           VERSION=$(cat artifacts/buttons-version.txt)
           BUILD_VERSION=$(cat VERSION)
-          BOARD="${{ steps.board.outputs.board }}"
+          CUSTOM="${{ inputs.custom-board }}"
+          SELECTED="${{ inputs.armbian-board }}"
+          BOARD="${CUSTOM:-$SELECTED}"
           FINAL_NAME="${BOARD}-buttons-usb-relay-${VERSION}-build${BUILD_VERSION}.img"
 
           LOOP=$(sudo losetup -fP --show "$IMG")
