@@ -136,8 +136,20 @@ jobs:
         run: |
           TAG="buttons-usb-relay-${VERSION}"
           bash scripts/generate-release-notes.sh "$VERSION" release-assets
-          gh release create "$TAG" \
-            --repo "${{ github.repository }}" \
-            --title "Buttons USB Relay ${VERSION}" \
-            --notes-file /tmp/release-notes.md \
-            release-assets/*.img.gz
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists; updating notes and assets."
+            gh release edit "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "Buttons USB Relay ${VERSION}" \
+              --notes-file /tmp/release-notes.md
+            gh release upload "$TAG" \
+              --repo "${{ github.repository }}" \
+              --clobber \
+              release-assets/*.img.gz
+          else
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "Buttons USB Relay ${VERSION}" \
+              --notes-file /tmp/release-notes.md \
+              release-assets/*.img.gz
+          fi
