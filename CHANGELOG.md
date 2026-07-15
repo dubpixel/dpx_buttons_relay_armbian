@@ -8,24 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- 
-
-### Changed
-- 
-
-### Deprecated
-- 
-
-### Removed
-- 
-
-### Fixed
-- 
-
-### Security
-- 
+-
 
 ---
+
+## [0.2.0] - 2026-07-15
+
+### Added
+- SSH enabled by default in image (`root` / `1234`) — no serial cable needed for debugging
+- IPv6 disabled system-wide via sysctl; NetworkManager forced to IPv4 DHCP only
+- `scripts/generate-release-notes.sh` — extracted from workflow to fix YAML heredoc parse error
+- `scripts/upload-mirror.sh` — one-command helper to push new Bitfocus packages to mirror release
+- Full 150+ Armbian board list in `workflow_dispatch` dropdown
+- Rock Pi S (`rockpi-s`) corrected from wrong ID `rockpis`
+
+### Fixed
+- YAML syntax errors in `release-action.yaml` (inline array options, heredoc inside block scalar)
+- `sudo mv` / `sudo gzip` / `sudo chown` for root-owned Armbian and Packer build outputs
+- Release job now deletes existing tag before recreating (handles force rebuilds cleanly)
+- Auto-release matrix switched from Orange Pi Zero to Rock Pi (`rockpi-s`, `rockpi-4b`, `rockpi-4bplus`, `rock-s0`)
 
 ## [0.1.0] - 2026-07-15
 

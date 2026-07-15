@@ -34,14 +34,27 @@ fi
 systemctl enable avahi-daemon || true
 
 # ── Force IPv4 only ───────────────────────────────────────────────────────────
-# Disable IPv6 via sysctl so the board always gets a proper IPv4 DHCP lease
-cat > /etc/sysctl.d/99-disable-ipv6.conf << 'EOF'
+# Disable IPv6 at the kernel level via boot args — most reliable method on Armbian.
+# sysctl alone fires too late; link-local fe80:: gets assigned before it runs.
+if [ -f /boot/armbianEnv.txt ]; then
+    if grep -q "^extraargs=" /boot/armbianEnv.txt; then
+        # Append to existing extraargs line
+        sed -i 's/^extraargs=.*/& ipv6.disable=1/' /boot/armbianEnv.txt
+    else
+        echo "extraargs=ipv6.disable=1" >> /boot/armbianEnv.txt
+    fi
+    echo "==> IPv6 disabled via kernel cmdline (armbianEnv.txt)"
+else
+    # Fallback: sysctl for non-Armbian boards
+    cat > /etc/sysctl.d/99-disable-ipv6.conf << 'EOF'
 net.ipv6.conf.all.disable_ipv6 = 1
 net.ipv6.conf.default.disable_ipv6 = 1
 net.ipv6.conf.lo.disable_ipv6 = 1
 EOF
+    echo "==> IPv6 disabled via sysctl (fallback)"
+fi
 
-# Tell NetworkManager to use IPv4 DHCP only on all connections
+# NetworkManager: IPv4 DHCP only
 mkdir -p /etc/NetworkManager/conf.d
 cat > /etc/NetworkManager/conf.d/ipv4-only.conf << 'EOF'
 [connection]
