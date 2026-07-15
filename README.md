@@ -130,10 +130,10 @@ The following boards are built **automatically** on every new Buttons release an
 
 | Board | Armbian ID |
 |---|---|
-| Rock Pi S | `rockpi-s` |
-| Rock Pi 4B | `rockpi-4b` |
-| Rock Pi 4B+ | `rockpi-4bplus` |
-| Rock Pi S0 | `rock-s0` |
+| [Rock Pi S](https://wiki.radxa.com/RockpiS) | `rockpi-s` |
+| [Rock Pi 4B](https://wiki.radxa.com/Rockpi4) | `rockpi-4b` |
+| [Rock Pi 4B+](https://wiki.radxa.com/Rockpi4) | `rockpi-4bplus` |
+| [Rock Pi S0](https://radxa.com/products/rockpi/s0) | `rock-s0` |
 
 All 150+ [Armbian-supported boards](https://www.armbian.com/download/) are available for one-off manual builds — see [Path C](#-path-c--build-any-other-board-manually).
 
