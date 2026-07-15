@@ -96,10 +96,10 @@ jobs:
       fail-fast: false
       matrix:
         board:
-          - orangepizero
-          - orangepizero2
-          - orangepizero2w
-          - orangepizero3
+          - rockpi-s
+          - rockpi-4b
+          - rockpi-4bplus
+          - rock-s0
     uses: ./.github/workflows/armbian-builder.yaml
     with:
       armbian-board: ${{ matrix.board }}
@@ -134,20 +134,22 @@ jobs:
         run: |
           TAG="buttons-usb-relay-${VERSION}"
 
-          gh release create "$TAG" \
-            --repo "${{ github.repository }}" \
-            --title "Buttons USB Relay ${VERSION}" \
-            --notes "## Bitfocus Buttons USB Relay ${VERSION}
+          # Build board list from artifact filenames
+          BOARD_LIST=""
+          for f in release-assets/*.img.gz; do
+            B=$(basename "$f" | sed 's/-buttons-usb-relay-.*//')
+            BOARD_LIST="${BOARD_LIST}- \`${B}\` — \`$(basename "$f")\`"$'\n'
+          done
+
+          # Write notes to file to avoid YAML quoting issues
+          cat > /tmp/release-notes.md << NOTES
+## Bitfocus Buttons USB Relay ${VERSION}
 
 Flash-ready Armbian images with [Bitfocus Buttons USB Relay](https://bitfocus.io/buttons) (headless) pre-installed.
 Plug in your Stream Deck, power on — the relay is already running.
 
 ### Boards included
-$(for f in release-assets/*.img.gz; do
-  B=$(basename "$f" | sed 's/-buttons-usb-relay-.*//')
-  echo "- \`${B}\` — \`$(basename $f)\`"
-done)
-
+${BOARD_LIST}
 ### Flash it
 \`\`\`bash
 # macOS / Linux
@@ -164,5 +166,11 @@ Or use [Balena Etcher](https://etcher.balena.io/) — it reads \`.gz\` directly,
 \`\`\`bash
 systemctl status bitfocus-buttons-usb-relay
 journalctl -u bitfocus-buttons-usb-relay -f
-\`\`\`" \
+\`\`\`
+NOTES
+
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "Buttons USB Relay ${VERSION}" \
+            --notes-file /tmp/release-notes.md \
             release-assets/*.img.gz

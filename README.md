@@ -119,14 +119,16 @@ A daily scheduled workflow checks whether the mirror release has a version that 
 
 ### Supported Boards
 
+All 150+ [Armbian-supported boards](https://www.armbian.com/download/) are available for manual builds via **Actions → Build Armbian + Buttons USB Relay Image → Run workflow**.
+
+The following boards are built **automatically** on every new Buttons release:
+
 | Board | Armbian ID | Notes |
 |---|---|---|
-| Orange Pi Zero | `orangepizero` | 256/512 MB RAM — light load only |
-| Orange Pi Zero 2 | `orangepizero2` | 1 GB RAM — solid all-rounder |
-| Orange Pi Zero 2W | `orangepizero2w` | 1 GB RAM + onboard WiFi |
-| Orange Pi Zero 3 | `orangepizero3` | 1/1.5/2/4 GB RAM — recommended |
-
-Any board in the [Armbian supported hardware list](https://www.armbian.com/download/) can be added by editing the matrix in [.github/workflows/release-action.yaml](.github/workflows/release-action.yaml).
+| Rock Pi S | `rockpi-s` | Compact, low-power — primary target |
+| Rock Pi 4B | `rockpi-4b` | Quad-core RK3399, 4GB RAM |
+| Rock Pi 4B+ | `rockpi-4bplus` | Rock Pi 4B with eMMC |
+| Rock Pi S0 | `rock-s0` | Successor to Rock Pi S |
 
 ---
 

@@ -4,112 +4,107 @@ This document provides operational directives for AI coding assistants (GitHub C
 
 ---
 
-## PROJECT: [Project Name]
+## PROJECT: dpx_buttons_armbian
 
-**Instructions for customizing this section:**
-Replace the placeholders below with your project's specific information. Remove subsections that don't apply. This template is intentionally verbose — prune what you don't need.
-
-**Status:** [e.g., v0.1.0 complete (2026-06-05) ✅]  
-**Branch:** [e.g., `feature/core-app-implementation`]  
-**Version File:** [e.g., `VERSION` (currently 0.1.0)]
+**Status:** v0.1.0 complete (2026-07-15) ✅  
+**Branch:** `main`  
+**Version File:** `VERSION` (currently 0.1.0)
 
 ### Architecture (2-minute summary)
 
-[One-paragraph overview: what this project does, core tech, how it works]
-
-**Example:** "Browser-based monitoring tool for Phabrix QX waveform monitors. Pure vanilla JS (no frameworks, no build step, no CDN). Connects to QX REST API on port 8080, polls status/logs every 2-5s, stores settings in localStorage. Works offline in airgapped broadcast facilities."
+Automated GitHub Actions build pipeline that produces flash-ready `.img.gz` Armbian images for ARM single-board computers (Orange Pi Zero family) with Bitfocus Buttons USB Relay (headless) pre-installed and auto-starting on boot. Two-stage build: (1) Armbian build framework compiles a minimal Ubuntu Noble base image for the target board, (2) HashiCorp Packer chroots into the image and installs the `.deb`, sets hostname, enables mDNS, and disables the first-login prompt. The Buttons package is distributed as a `.tar.gz` from Bitfocus's auth-gated portal — this project solves that by maintaining a self-hosted mirror release (`buttons-deb-mirror`) in the repo, so CI only needs the built-in `GITHUB_TOKEN`. No Bitfocus credentials ever touch CI.
 
 | Component | Tech/Location | Purpose | Notes |
 |-----------|---------------|---------|-------|
-| [Component 1] | [Tech] / `path/` | [What it does] | [Key details] |
-| [Component 2] | [Tech] / `path/` | [What it does] | [Key details] |
-| [Component 3] | [Tech] / `path/` | [What it does] | [Key details] |
-| [Reference docs] | [Format] / `path/` | [What it is] | **Source of truth for [topic]** |
+| Packer build definition | HCL / `buttons-usb-relay.pkr.hcl` | Chroot customization of Armbian image | Uses `arm-image` plugin v0.2.7; targets 5 GB image |
+| Install script | Bash / `scripts/install-buttons.sh` | Installs `.deb` inside chroot, enables service + avahi | Runs as root inside Packer shell provisioner |
+| Download script | Bash / `scripts/download-buttons.sh` | Pulls `.tar.gz` from mirror release, extracts `.deb` | Uses `gh` CLI + `GITHUB_TOKEN`; writes `artifacts/buttons-version.txt` |
+| Mirror upload helper | Bash / `scripts/upload-mirror.sh` | LOCAL script — uploads new Bitfocus package to mirror release | Run by maintainer when new Buttons version drops; requires `gh` auth |
+| Build workflow | YAML / `.github/workflows/armbian-builder.yaml` | Reusable: builds Armbian + downloads package + runs Packer + uploads artifact | Called by `release-action.yaml` or triggered manually |
+| Release workflow | YAML / `.github/workflows/release-action.yaml` | Daily cron version check + matrix build + GitHub Release publish | Compares mirror asset filename against latest release tag to detect new versions |
+| Package mirror | GitHub Release / tag `buttons-deb-mirror` | Hosts the Bitfocus `.tar.gz` for CI to download | **Maintainer updates this when Bitfocus ships a new version** |
 
 ### Agent Rules (for this repo)
 
 **Before ANY code change:**
-1. Work from `[main/master]` branch; create feature branch: `feature/brief-description`
-2. Bump VERSION file per semantic versioning (AGENTS.md §1)
-3. Create git commit for version bump, tag it: `git tag vX.Y.Z`
+1. Create feature branch from `main`: `feature/brief-description`
+2. Bump `VERSION` file per semantic versioning (AGENTS.md §1)
+3. Commit version bump standalone: `git commit -m "bump version to X.Y.Z"` + `git tag vX.Y.Z`
 
 **While coding:**
-- [Project-specific rule or constraint]
-- [Technology requirement or restriction]
-- [Testing/validation requirement]
-- Keep changes small, test before committing
+- Never commit `.tar.gz`, `.deb`, `.img`, or `.img.gz` files — they are gitignored; use the mirror release
+- Workflow YAML changes must be tested by manually triggering `armbian-builder.yaml` on one board before touching the matrix
+- The `deb_path` variable in `buttons-usb-relay.pkr.hcl` must always point to `artifacts/bitfocus-buttons-usb-relay-headless.deb` — that's the normalized name `download-buttons.sh` outputs
+- Keep the `buttons-deb-mirror` release tag permanent — never delete it; it is the CI package source
 - File header per AGENTS.md §3
 
 **When done:**
-- Update CHANGELOG.md with feature list
+- Update `CHANGELOG.md` with new version entry and date
+- Update `VERSION` file
 - Create PR per AGENTS.md §1 template
-- [Any project-specific verification steps]
+- Verify `armbian-builder.yaml` can still run `workflow_dispatch` manually without errors
 
 ### Critical Constraints
 
 **MUST HAVE:**
-- ✅ [Required capability or dependency]
-- ✅ [Required technology or approach]
-- ✅ [Required compatibility or standard]
+- ✅ `buttons-deb-mirror` GitHub Release must always exist with a valid `.tar.gz` asset — CI fails without it
+- ✅ `GITHUB_TOKEN` permissions `contents: read` on builder, `contents: write` on release job
+- ✅ `qemu-user-static` installed on the runner before Packer runs (ARM64 chroot requirement)
+- ✅ `avahi-daemon` installed inside the image (mDNS discovery on port 3040)
+- ✅ `VERSION` file kept in sync with `CHANGELOG.md`
 
 **DO NOT:**
-- ❌ [Forbidden action or technology]
-- ❌ [Assumption that must be avoided]
-- ❌ [Hard-coded value or static configuration]
-- ❌ [Change that requires explicit verification]
+- ❌ Add `BITFOCUS_EMAIL` / `BITFOCUS_PASSWORD` secrets — the mirror approach eliminates this entirely
+- ❌ Commit binary files (`.deb`, `.tar.gz`, images) to git — use the mirror release
+- ❌ Delete or rename the `buttons-deb-mirror` release tag — it breaks all CI builds
+- ❌ Change the Packer output path `output-buttonspi/` without updating the compression step in `armbian-builder.yaml`
+- ❌ Modify the board matrix in `release-action.yaml` without confirming the board is in the Armbian supported list
 
 ### Key Decisions
 
-- **[Decision Title]:** [Explanation - why this approach was chosen over alternatives]
-- **[Decision Title]:** [Rationale for architecture/design choice]
-- **[Decision Title]:** [Context for future agents]
-
-**Examples:**
-- **Dual README templates:** Hardware needs schematics/BOMs, software needs API docs - fundamentally different documentation needs
-- **No WebSocket:** QX REST API is HTTP-only. Polling is the only option.
-- **Bootstrap on connect:** Device specs vary by boot mode - auto-detect on initial connection
+- **Self-hosted mirror over portal auth:** Bitfocus Buttons USB Relay is closed-source with an auth-gated download portal and no public API docs. Rather than reverse-engineering the login flow and storing credentials as secrets, the maintainer manually uploads `.tar.gz` packages to a dedicated GitHub Release. CI downloads using the always-available `GITHUB_TOKEN`. Simple, reliable, zero secrets.
+- **Packer over Armbian userpatches:** Image customization happens post-build via Packer chroot, not via Armbian's native overlay system. This decouples the Armbian build from the Buttons install — the Armbian image can be rebuilt independently, and Packer applies the same customization regardless of Armbian version changes.
+- **Version detected from asset filename:** The release workflow determines the Buttons version by parsing the `.tar.gz` filename in the mirror release (e.g., `bitfocus-buttons-usb-relay-headless_0.1.0-beta.4_arm64.tar.gz` → `0.1.0-beta.4`). No API call required. Filename is the source of truth.
+- **Orange Pi Zero family as default matrix:** Same boards as the reference project (`companion-satellite-armbian`). They're cheap, low-power, well-supported by Armbian, and ideal for a dedicated USB relay appliance.
+- **SSH disabled in image:** The device is a headless appliance. SSH off by default reduces attack surface. Re-enable manually via console if needed.
 
 ### Gotchas & Landmines
 
-1. **[Issue Title]:** [Description]. [Workaround or solution]. [Where to look for more info]
-2. **[Issue Title]:** [Description]. [Workaround or solution].
-3. **[Issue Title]:** [Description]. [Always check/verify X before doing Y].
-
-**Examples:**
-- **CORS issue:** API calls from `file://` origin fail. Use launch script or Python server, not direct open.
-- **Boot modes matter:** Device can boot in different modes. Different endpoints available per mode. Always auto-detect on connect.
-- **Manual is authority:** If specs seem odd, check `/docs/manual.pdf` Ch.X. Don't guess.
+1. **Armbian build framework is large and slow:** The `git clone --depth=1` of `armbian/build` takes several minutes. The full compile step is 30-60+ minutes per board. Don't expect fast CI feedback loops. Test Packer and script changes with a pre-built Armbian image locally if possible.
+2. **`buttons-deb-mirror` must exist before first CI run:** Run `./scripts/upload-mirror.sh <tarball>` locally before triggering any workflow. The download step will fail with a 404 if the mirror release doesn't exist.
+3. **Debian version notation uses `~` for pre-release:** The `.deb` inside the tarball uses `0.1.0~beta.4` (tilde) but the tarball filename uses `0.1.0-beta.4` (dash). `download-buttons.sh` handles this — don't try to parse the `.deb` filename directly.
+4. **`zerofree` requires the partition to be unmounted:** The compression step loops the image, unmounts, zeros, then detaches. If a previous run left a loop device attached, `losetup -d` may need manual cleanup on the runner.
+5. **Packer `arm-image` plugin requires `sudo`:** All `packer init` and `packer build` calls must be prefixed with `sudo`. The plugin modifies loop devices and mounts.
 
 ### Common Operations
 
-**[Operation 1 - e.g., Create new project]:** `./script.sh` (interactive prompts for X/Y/Z)
+**Update Buttons to a new version:**
+```bash
+./scripts/upload-mirror.sh ~/Downloads/bitfocus-buttons-usb-relay-headless_X.Y.Z_arm64.tar.gz
+gh workflow run release-action.yaml --repo dubpixel/dpx_buttons_armbian
+```
 
-**[Operation 2 - e.g., Modify behavior]:** Edit `path/to/file.ext` - all logic centralized
+**Manual single-board test build:**
+Go to Actions → Build Armbian + Buttons USB Relay Image → Run workflow → pick board
 
-**[Operation 3 - e.g., Add components]:** Add to `path/`, update `config.ext` if special handling needed
+**Force re-release of current version:**
+Actions → Release — Buttons USB Relay Images → Run workflow → Force: true
 
-**[Operation 4 - e.g., Template processing]:**
-- [Scenario A]: `input-A.ext` → `output.ext`
-- [Scenario B]: `input-B.ext` → `output.ext`  
-- [Always]: `.git` and `.env` excluded from copy
+**Add a new board to the matrix:**
+Edit `.github/workflows/release-action.yaml` under `matrix.board`, add the Armbian board ID. Also add it to the `workflow_dispatch` options in `armbian-builder.yaml`.
 
-### Reference
+> Manual-only boards (not in auto-release matrix): everything else in the 150+ board `workflow_dispatch` list
 
-See `/CONTEXT.md` for:
-- [Extended architecture details]
-- [Module/component specifications]
-- [Data schemas or API contracts]
+> Auto-release matrix boards: `rockpi-s`, `rockpi-4b`, `rockpi-4bplus`, `rock-s0`
 
-See `/.github/CONTEXT.md` for:
-- [API endpoint reference]
-- [Configuration specifications]
-- [Testing procedures]
+**Check what version is in the mirror:**
+```bash
+gh release view buttons-deb-mirror --repo dubpixel/dpx_buttons_armbian --json assets --jq '.assets[].name'
+```
 
 ### Development Philosophy
 
-[Optional: High-level principles for this project type]
-
-**Example:** "This is broadcast infrastructure tooling - reliability and simplicity trump features. Prefer vanilla JavaScript over frameworks. Keep dependencies minimal and auditable. Test in airgapped environments. Design for 24/7 unattended operation."
+This is broadcast infrastructure tooling — it runs 24/7 as a headless appliance in a production AV environment. Reliability and simplicity trump features. The image must boot clean, start the service automatically, and be discoverable via mDNS with zero configuration. Keep the build pipeline transparent and auditable: no magic, no hidden credentials, no framework abstractions that obscure what's actually happening inside the image.
 
 ---
 
