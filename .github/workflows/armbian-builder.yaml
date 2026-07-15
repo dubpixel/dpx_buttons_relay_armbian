@@ -343,7 +343,9 @@ jobs:
           sudo apt-get update -q && sudo apt-get install -y packer
 
       - name: Initialize Packer plugins
-        run: sudo packer init buttons-usb-relay.pkr.hcl
+        env:
+          PACKER_GITHUB_API_TOKEN: ${{ github.token }}
+        run: sudo --preserve-env=PACKER_GITHUB_API_TOKEN packer init buttons-usb-relay.pkr.hcl
 
       - name: Build customized image with Packer
         env:
