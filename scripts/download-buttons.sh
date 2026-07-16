@@ -18,16 +18,27 @@ mkdir -p "$ARTIFACTS_DIR"
 
 echo "==> Fetching package from mirror release: ${MIRROR_TAG}"
 
-# Strategy: use gh api /releases (list endpoint) to find the download URL,
-# then curl the direct URL. This avoids /releases/tags/{tag} which can be
-# flaky. Falls back to gh release download if the list approach fails.
+# Primary: gh release download (simple, standard)
+# Fallback: gh api /releases list + curl direct URL
+# The fallback avoids the /releases/tags/{tag} endpoint which can be flaky.
 
 TARBALL=""
 
 for attempt in 1 2 3 4 5; do
     echo "==> Download attempt ${attempt}/5"
 
-    # Try via releases list endpoint → extract browser_download_url → curl
+    # Primary: gh release download
+    if gh release download "$MIRROR_TAG" \
+        --repo "${GITHUB_REPOSITORY}" \
+        --pattern "*.tar.gz" \
+        --dir "$ARTIFACTS_DIR" \
+        --clobber 2>/dev/null; then
+        TARBALL=$(ls "$ARTIFACTS_DIR"/*.tar.gz | head -1)
+        break
+    fi
+
+    # Fallback: list endpoint → browser_download_url → curl
+    echo "==> Primary failed, trying list API fallback..."
     ASSET_URL=$(gh api "repos/${GITHUB_REPOSITORY}/releases" \
         --jq ".[] | select(.tag_name == \"${MIRROR_TAG}\") | .assets[] | select(.name | endswith(\".tar.gz\")) | .browser_download_url" \
         2>/dev/null | head -1 || true)
@@ -40,16 +51,6 @@ for attempt in 1 2 3 4 5; do
             TARBALL="$OUTFILE"
             break
         fi
-    fi
-
-    # Fallback: gh release download
-    if gh release download "$MIRROR_TAG" \
-        --repo "${GITHUB_REPOSITORY}" \
-        --pattern "*.tar.gz" \
-        --dir "$ARTIFACTS_DIR" \
-        --clobber 2>/dev/null; then
-        TARBALL=$(ls "$ARTIFACTS_DIR"/*.tar.gz | head -1)
-        break
     fi
 
     if [[ $attempt -eq 5 ]]; then
