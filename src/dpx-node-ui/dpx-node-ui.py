@@ -639,8 +639,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             run(["nmcli", "connection", "up", conn])
             self.redir("/?ok=network")
 
-        # ── /identify ──────────────────────────────────────────────────────
-        elif p == "/restart-buttons":
+        # ── /restart-buttons ───────────────────────────────────────────────
+        elif path == "/restart-buttons":
             _, err, rc = run(["systemctl", "restart", "bitfocus-buttons-usb-relay"])
             if rc != 0:
                 self.html(render_devices(alert=f"✗ restart failed: {esc(err)}", alert_cls="a-err"))
