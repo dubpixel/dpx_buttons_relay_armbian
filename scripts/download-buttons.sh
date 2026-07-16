@@ -18,24 +18,51 @@ mkdir -p "$ARTIFACTS_DIR"
 
 echo "==> Fetching package from mirror release: ${MIRROR_TAG}"
 
-# Download with retry — GitHub API can return transient 503s
+# Strategy: use gh api /releases (list endpoint) to find the download URL,
+# then curl the direct URL. This avoids /releases/tags/{tag} which can be
+# flaky. Falls back to gh release download if the list approach fails.
+
+TARBALL=""
+
 for attempt in 1 2 3 4 5; do
     echo "==> Download attempt ${attempt}/5"
+
+    # Try via releases list endpoint → extract browser_download_url → curl
+    ASSET_URL=$(gh api "repos/${GITHUB_REPOSITORY}/releases" \
+        --jq ".[] | select(.tag_name == \"${MIRROR_TAG}\") | .assets[] | select(.name | endswith(\".tar.gz\")) | .browser_download_url" \
+        2>/dev/null | head -1 || true)
+
+    if [[ -n "$ASSET_URL" ]]; then
+        OUTFILE="$ARTIFACTS_DIR/$(basename "$ASSET_URL")"
+        if curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" \
+                --retry 3 --retry-delay 5 \
+                "$ASSET_URL" -o "$OUTFILE"; then
+            TARBALL="$OUTFILE"
+            break
+        fi
+    fi
+
+    # Fallback: gh release download
     if gh release download "$MIRROR_TAG" \
         --repo "${GITHUB_REPOSITORY}" \
         --pattern "*.tar.gz" \
         --dir "$ARTIFACTS_DIR" \
-        --clobber; then
+        --clobber 2>/dev/null; then
+        TARBALL=$(ls "$ARTIFACTS_DIR"/*.tar.gz | head -1)
         break
     fi
+
     if [[ $attempt -eq 5 ]]; then
         echo "ERROR: Failed to download after 5 attempts"
         exit 1
     fi
-    echo "==> Retrying in 15s..."
-    sleep 15
+    echo "==> Retrying in 20s..."
+    sleep 20
 done
 
+if [[ -z "$TARBALL" || ! -f "$TARBALL" ]]; then
+    TARBALL=$(ls "$ARTIFACTS_DIR"/*.tar.gz 2>/dev/null | head -1)
+fi
 TARBALL=$(ls "$ARTIFACTS_DIR"/*.tar.gz | head -1)
 echo "==> Downloaded: $(basename "$TARBALL") ($(du -sh "$TARBALL" | cut -f1))"
 
