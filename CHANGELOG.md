@@ -12,6 +12,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-07-15
+
+### Added
+- Dynamic hostname at first boot: `dpx-buttnode-XXXX` derived from last 4 hex chars of MAC address
+- `dpx-set-hostname.service` systemd oneshot service handles hostname assignment
+- Secure root password baked in via `ROOT_PASSWORD` GitHub Secret (never in code)
+- `ROOT_PASSWORD` secret properly chained through `workflow_call` to Packer build
+- `custom-board` free-text input on `armbian-builder.yaml` — build any board not in dropdown
+- `publish-release.yaml` workflow — re-publish a release from existing build artifacts without recompiling
+- Release tags now include pipeline version: `buttons-usb-relay-X.Y.Z-buildA.B.C`
+- `force=true` on release workflow deletes and recreates the same tag; normal runs never overwrite
+- Orange Pi Zero 3 added to release matrix
+- Full 150+ Armbian board list in manual dispatch dropdown
+
+### Fixed
+- Removed all IPv6 disable config (`armbianEnv.txt`, sysctl, NetworkManager) — was breaking DHCP
+- Self-referencing board resolve step removed; board now resolved inline in each step
+- `PACKER_GITHUB_API_TOKEN` passed to `packer init` to avoid GitHub API rate limit
+- `sudo` removed from `compile.sh` call (Armbian rejects being run as root)
+- All post-Packer file ops use `sudo`; final `.gz` gets `chown runner:runner` for artifact upload
+- YAML heredoc inside `run:` block extracted to `scripts/generate-release-notes.sh`
+- Release options array syntax fixed for GitHub Actions `workflow_dispatch`
+
 ## [0.2.0] - 2026-07-15
 
 ### Added

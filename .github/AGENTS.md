@@ -73,7 +73,7 @@ Automated GitHub Actions build pipeline that produces flash-ready `.img.gz` Armb
 1. **Armbian build framework is large and slow:** The `git clone --depth=1` of `armbian/build` takes several minutes. The full compile step is 30-60+ minutes per board. Don't expect fast CI feedback loops. Test Packer and script changes with a pre-built Armbian image locally if possible.
 2. **`buttons-deb-mirror` must exist before first CI run:** Run `./scripts/upload-mirror.sh <tarball>` locally before triggering any workflow. The download step will fail with a 404 if the mirror release doesn't exist.
 3. **Debian version notation uses `~` for pre-release:** The `.deb` inside the tarball uses `0.1.0~beta.4` (tilde) but the tarball filename uses `0.1.0-beta.4` (dash). `download-buttons.sh` handles this — don't try to parse the `.deb` filename directly.
-4. **Everything after Packer is root-owned:** Packer runs as root, so `output-buttonspi/` and its contents are owned by root. Every subsequent file operation — `mv`, `gzip`, and even the final `.gz` — needs `sudo`. After gzip, run `sudo chown runner:runner <file>.gz` so `actions/upload-artifact` (which runs as the `runner` user) can read it.
+4. **DO NOT disable IPv6:** Tried `ipv6.disable=1` in `armbianEnv.txt` and `NetworkManager ipv6.method=disabled` — both broke DHCP, the board got no IP at all. Armbian's network stack relies on IPv6 being present during interface bring-up. The board gets both IPv4 and IPv6 addresses naturally; Buttons USB Relay works fine on IPv4. Leave networking alone.
 5. **Packer `arm-image` plugin requires `sudo`:** All `packer init` and `packer build` calls must be prefixed with `sudo`. The plugin modifies loop devices and mounts.
 
 ### Common Operations
