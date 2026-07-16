@@ -144,7 +144,8 @@ def get_net_info():
 
     if networkd_active():
         info["networkd"] = True
-        # Netplan override takes highest priority on Armbian
+        # No override file = DHCP (Armbian default takes over)
+        # Override file present = read it for mode/config
         if DPX_NETPLAN.exists():
             txt = DPX_NETPLAN.read_text()
             if re.search(r"dhcp4:\s*true", txt):
@@ -157,18 +158,19 @@ def get_net_info():
                 if m: info["gateway"] = m.group(1)
                 m = re.search(r"addresses:\s*\[(\S+)\]", txt)
                 if m: info["dns"] = m.group(1).rstrip(",]")
-            return info
-        # Fall back to raw networkd DPX file
-        cfg = DPX_NET_FILE if DPX_NET_FILE.exists() else (DPX_NET_OLD if DPX_NET_OLD.exists() else None)
-        if cfg:
-            txt = cfg.read_text()
-            if re.search(r"^\s*DHCP\s*=\s*(yes|ipv4)", txt, re.M | re.I):
-                info["mode"] = "dhcp"
-            else:
-                info["mode"] = "static"
-                m = re.search(r"^\s*Address\s*=\s*(\S+)",  txt, re.M); info["ip_cidr"]  = m.group(1) if m else info["ip_cidr"]
-                m = re.search(r"^\s*Gateway\s*=\s*(\S+)", txt, re.M); info["gateway"] = m.group(1) if m else ""
-                m = re.search(r"^\s*DNS\s*=\s*(\S+)",     txt, re.M); info["dns"]     = m.group(1) if m else "8.8.8.8"
+        else:
+            # No override — Armbian default DHCP is active
+            info["mode"] = "dhcp"
+        # Fall back to raw networkd DPX file if Netplan override absent
+        if info["mode"] == "dhcp" and not DPX_NETPLAN.exists():
+            cfg = DPX_NET_FILE if DPX_NET_FILE.exists() else (DPX_NET_OLD if DPX_NET_OLD.exists() else None)
+            if cfg:
+                txt = cfg.read_text()
+                if not re.search(r"^\s*DHCP\s*=\s*(yes|ipv4)", txt, re.M | re.I):
+                    info["mode"] = "static"
+                    m = re.search(r"^\s*Address\s*=\s*(\S+)",  txt, re.M); info["ip_cidr"]  = m.group(1) if m else info["ip_cidr"]
+                    m = re.search(r"^\s*Gateway\s*=\s*(\S+)", txt, re.M); info["gateway"] = m.group(1) if m else info["gateway"]
+                    m = re.search(r"^\s*DNS\s*=\s*(\S+)",     txt, re.M); info["dns"]     = m.group(1) if m else "8.8.8.8"
         return info
 
     return info
@@ -177,19 +179,20 @@ def get_net_info():
 def write_networkd_config(iface, mode, ip_cidr=None, gateway=None, dns="8.8.8.8"):
     """Apply network config. Uses Netplan if available (Armbian), raw networkd otherwise."""
     if netplan_available():
-        # Netplan: write 99-dpx-override.yaml — highest priority, beats Armbian's 10-dhcp wildcard
-        NETPLAN_DIR.mkdir(parents=True, exist_ok=True)
+        # DHCP: delete our override so Armbian's default DHCP config takes over
+        # Static: write 99-dpx-override.yaml which wins over the Armbian wildcard
         if mode == "dhcp":
-            content = (f"network:\n  version: 2\n  ethernets:\n    {iface}:\n"
-                       f"      dhcp4: true\n      dhcp6: false\n")
+            if DPX_NETPLAN.exists():
+                DPX_NETPLAN.unlink()
         else:
+            NETPLAN_DIR.mkdir(parents=True, exist_ok=True)
             content = (f"network:\n  version: 2\n  ethernets:\n    {iface}:\n"
                        f"      dhcp4: false\n      dhcp6: false\n"
                        f"      addresses:\n        - {ip_cidr}\n"
                        f"      routes:\n        - to: default\n          via: {gateway}\n"
                        f"      nameservers:\n        addresses: [{dns}]\n")
-        DPX_NETPLAN.write_text(content)
-        DPX_NETPLAN.chmod(0o600)  # netplan requires restricted permissions
+            DPX_NETPLAN.write_text(content)
+            DPX_NETPLAN.chmod(0o600)
         run(["netplan", "apply"])
     else:
         # Raw networkd fallback for boards without Netplan
