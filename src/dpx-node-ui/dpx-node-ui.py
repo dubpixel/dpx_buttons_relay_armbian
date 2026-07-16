@@ -145,6 +145,8 @@ def write_networkd_config(iface, mode, ip_cidr=None, gateway=None, dns="8.8.8.8"
                    f"[Network]\nAddress={ip_cidr}\nGateway={gateway}\nDNS={dns}\n")
     DPX_NET_FILE.write_text(content)
     run(["networkctl", "reload"])
+    time.sleep(1)  # allow networkd to apply before restarting dependent services
+    run(["systemctl", "restart", "bitfocus-buttons-usb-relay"])
 
 
 def get_usb_devices():
@@ -677,6 +679,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
 
             run(["nmcli", "connection", "up", conn])
+            run(["systemctl", "restart", "bitfocus-buttons-usb-relay"])
             self.redir("/?ok=network")
 
         # ── /power-cycle-deck ──────────────────────────────────────────
