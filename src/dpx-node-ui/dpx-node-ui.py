@@ -163,32 +163,28 @@ def get_net_info():
 
 def write_networkd_config(iface, mode, ip_cidr=None, gateway=None, dns="8.8.8.8"):
     """Apply network config. Uses Netplan if available (Armbian), raw networkd otherwise."""
+    # 09- sorts before Netplan's 10- wildcard, giving us priority for end0
+    DPX_STATIC   = Path(f"/etc/systemd/network/09-dpx-{iface}.network")
+    # Netplan's wildcard DHCP file — must be removed so static can win
+    RUN_WILDCARD = Path("/run/systemd/network/10-netplan-all-eth-interfaces.network")
+
     if netplan_available():
-        # Write directly to /etc/systemd/network/ using the SAME filename Netplan
-        # generates in /run/systemd/network/. /etc/ always beats /run/ in networkd.
-        # This bypasses netplan apply entirely (which fails rc=1 with our override).
-        ETC_NET = Path("/etc/systemd/network/10-netplan-all-eth-interfaces.network")
-        ETC_NET.parent.mkdir(parents=True, exist_ok=True)
-        if mode == "dhcp":
-            ETC_NET.write_text(f"[Match]\nName={iface}\n\n[Network]\nDHCP=yes\n")
-        else:
-            ETC_NET.write_text(
+        if mode == "static":
+            DPX_STATIC.parent.mkdir(parents=True, exist_ok=True)
+            DPX_STATIC.write_text(
                 f"[Match]\nName={iface}\n\n"
                 f"[Network]\nAddress={ip_cidr}\nGateway={gateway}\nDNS={dns}\n"
             )
-        # Remove any Netplan-generated /run/ files that conflict with our config.
-        # Netplan writes static configs to /run/systemd/network/ — they must be
-        # removed before restarting networkd or they'll override our /etc/ file.
-        run_net = Path("/run/systemd/network")
-        if run_net.exists():
-            for f in run_net.glob("*.network"):
-                try:
-                    txt = f.read_text()
-                    if f"Name={iface}" in txt and "Address=" in txt:
-                        f.unlink()
-                except Exception:
-                    pass
-        # Restart networkd so it re-reads all config from scratch
+            # Remove the wildcard DHCP file. Without it, only our 09- file
+            # matches end0 — networkd applies static cleanly after restart.
+            if RUN_WILDCARD.exists():
+                RUN_WILDCARD.unlink()
+        else:  # dhcp
+            # Remove our static override
+            if DPX_STATIC.exists():
+                DPX_STATIC.unlink()
+            # Restore Netplan's /run/ files (brings back wildcard DHCP)
+            run(["netplan", "generate"])
         run(["systemctl", "restart", "systemd-networkd"])
     else:
         # Raw networkd fallback for boards without Netplan
