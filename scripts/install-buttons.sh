@@ -103,34 +103,6 @@ systemctl enable dpx-set-hostname.service
 # Verify avahi (mDNS) is enabled so Buttons can discover this relay
 systemctl enable avahi-daemon || true
 
-# ── Force IPv4 only ───────────────────────────────────────────────────────────
-# Disable IPv6 at the kernel level via boot args — most reliable method on Armbian.
-# sysctl alone fires too late; link-local fe80:: gets assigned before it runs.
-if [ -f /boot/armbianEnv.txt ]; then
-    if grep -q "^extraargs=" /boot/armbianEnv.txt; then
-        # Append to existing extraargs line
-        sed -i 's/^extraargs=.*/& ipv6.disable=1/' /boot/armbianEnv.txt
-    else
-        echo "extraargs=ipv6.disable=1" >> /boot/armbianEnv.txt
-    fi
-    echo "==> IPv6 disabled via kernel cmdline (armbianEnv.txt)"
-else
-    # Fallback: sysctl for non-Armbian boards
-    cat > /etc/sysctl.d/99-disable-ipv6.conf << 'EOF'
-net.ipv6.conf.all.disable_ipv6 = 1
-net.ipv6.conf.default.disable_ipv6 = 1
-net.ipv6.conf.lo.disable_ipv6 = 1
-EOF
-    echo "==> IPv6 disabled via sysctl (fallback)"
-fi
-
-# NetworkManager: IPv4 DHCP only
-mkdir -p /etc/NetworkManager/conf.d
-cat > /etc/NetworkManager/conf.d/ipv4-only.conf << 'EOF'
-[connection]
-ipv6.method=disabled
-EOF
-
 # Clean up
 rm -f "$DEB"
 apt-get clean
