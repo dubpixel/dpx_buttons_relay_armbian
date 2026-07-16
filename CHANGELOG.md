@@ -12,6 +12,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-07-16
+
+### Added
+- **Dynamic hostname (reworked):** `dpx-set-hostname.service` sets hostname to `dpx-buttnode-XXXX`
+  (last 4 hex chars of primary Ethernet MAC, uppercase) on first boot. Placeholder in image is
+  now `dpx-buttnode` instead of `buttons-usb-relay`.
+- **`scripts/dpx-set-hostname.sh`:** Standalone script copied into image by Packer. Reads MAC from
+  `/sys/class/net/<iface>/type` (kernel sysfs — available before any network stack starts, no
+  dependency on `ip link show` or interface being up). Ordered `Before=network.target
+  avahi-daemon.service` so avahi reads the correct hostname on its very first start.
+- **`dpx-node-ui` device config web UI** on port 8080. Pure Python 3 stdlib — zero extra packages.
+  Four tabs: Status (hostname, IP, MAC, service health), Hostname (change + immediate mDNS
+  reload), Network (DHCP ↔ static via `nmcli`), Devices (USB device list + Buttons API
+  identify/blink endpoint). Managed by `dpx-node-ui.service`.
+- `src/dpx-node-ui/dpx-node-ui.py`: web app source, copied into image by Packer.
+
+### Fixed
+- Previous dynamic hostname implementation (`41f433a`) used `After=network-pre.target` and parsed
+  `ip link show` with fragile awk — replaced with sysfs read and corrected service ordering.
+- `/etc/hosts` 127.0.1.1 replacement no longer depends on `$CURRENT_HOSTNAME` variable; now uses
+  a direct regex match on the IP.
+
+---
+
 ## [0.3.0] - 2026-07-15
 
 ### Added

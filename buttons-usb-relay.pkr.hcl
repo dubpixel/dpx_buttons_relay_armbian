@@ -50,16 +50,28 @@ build {
     destination = "/tmp/install-buttons.sh"
   }
 
+  # Copy the dynamic-hostname script (installed to /usr/local/bin by install-buttons.sh)
+  provisioner "file" {
+    source      = "scripts/dpx-set-hostname.sh"
+    destination = "/tmp/dpx-set-hostname.sh"
+  }
+
+  # Copy the device config web UI (installed to /usr/local/bin by install-buttons.sh)
+  provisioner "file" {
+    source      = "src/dpx-node-ui/dpx-node-ui.py"
+    destination = "/tmp/dpx-node-ui.py"
+  }
+
   # System configuration (hostname, first-login cleanup, SSH)
   provisioner "shell" {
     inline = [
       # Disable Armbian first-login prompt
       "rm -f /root/.not_logged_in_yet",
 
-      # Set hostname
-      "CURRENT_HOSTNAME=$(cat /etc/hostname | tr -d ' \\t\\n\\r')",
-      "echo buttons-usb-relay > /etc/hostname",
-      "sed -i \"s/127.0.1.1.*$CURRENT_HOSTNAME/127.0.1.1\\tbuttons-usb-relay/g\" /etc/hosts",
+      # Set a placeholder hostname — dpx-set-hostname.service replaces this
+      # with dpx-buttnode-XXXX (MAC-derived) on first boot.
+      "echo dpx-buttnode > /etc/hostname",
+      "sed -i \"s/127.0.1.1.*/127.0.1.1\\tdpx-buttnode/\" /etc/hosts || true",
 
       # SSH enabled for remote access and debugging
       # Login: root / 1234  (Armbian forces a password change on first login)

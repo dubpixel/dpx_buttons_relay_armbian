@@ -2,7 +2,9 @@
 # install-buttons.sh
 # Runs inside the Armbian image chroot via Packer.
 # Installs the Bitfocus Buttons USB Relay headless .deb that was
-# copied to /tmp/ by the Packer file provisioner.
+# copied to /tmp/ by the Packer file provisioner, then installs:
+#   - dpx-set-hostname.service  (sets dpx-buttnode-XXXX hostname on first boot)
+#   - dpx-node-ui.service       (device config web UI on port 8080)
 
 set -euo pipefail
 
@@ -33,7 +35,61 @@ fi
 # Verify avahi (mDNS) is enabled so Buttons can discover this relay
 systemctl enable avahi-daemon || true
 
-# Clean up
+# ── Dynamic hostname (dpx-buttnode-XXXX) ──────────────────────────────────────
+# Install the set-hostname script that was copied into the image by Packer.
+# Reads MAC from /sys/class/net (sysfs — always available at boot, before any
+# network stack starts) and sets hostname once. Marker file prevents re-runs.
+echo "==> Installing dpx-set-hostname"
+
+install -m 0755 /tmp/dpx-set-hostname.sh /usr/local/bin/dpx-set-hostname.sh
+
+cat > /etc/systemd/system/dpx-set-hostname.service << 'UNIT'
+[Unit]
+Description=Set unique hostname from device MAC address (dpx-buttnode-XXXX)
+Documentation=https://github.com/dubpixel/dpx_buttons_armbian
+After=local-fs.target
+Before=network.target avahi-daemon.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/dpx-set-hostname.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl enable dpx-set-hostname.service
+echo "==> dpx-set-hostname.service: enabled"
+
+# ── dpx-node-ui (device config web UI on port 8080) ───────────────────────────
+echo "==> Installing dpx-node-ui"
+
+install -m 0755 /tmp/dpx-node-ui.py /usr/local/bin/dpx-node-ui.py
+
+cat > /etc/systemd/system/dpx-node-ui.service << 'UNIT'
+[Unit]
+Description=DPX Node UI — device configuration web interface (port 8080)
+Documentation=https://github.com/dubpixel/dpx_buttons_armbian
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/dpx-node-ui.py
+Restart=on-failure
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl enable dpx-node-ui.service
+echo "==> dpx-node-ui.service: enabled (port 8080)"
+
+# ── Clean up ───────────────────────────────────────────────────────────────────
 rm -f "$DEB"
 apt-get clean
 
