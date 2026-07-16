@@ -199,7 +199,11 @@ gunzip -c rockpi-s-buttons-usb-relay-0.1.0-beta.4.img.gz \
 
 **That's it.** Open **Bitfocus Buttons** on your computer — the relay appears automatically under discovered devices. No configuration needed.
 
-> The device hostname is `buttons-usb-relay.local`, port `3040` via mDNS. SSH is **on** — `root` / `1234`.
+> **Hostname:** Each device gets a unique hostname derived from its MAC address: `dpx-buttnode-XXXX.local` where `XXXX` is the last 4 hex characters of the MAC (e.g. `dpx-buttnode-a3f2.local`). This is stable — the same board always gets the same name.
+
+> **Finding your device:** Check your router's DHCP table, look for it in the Bitfocus Buttons discovered devices list, or run `ping dpx-buttnode-XXXX.local` once you know the suffix. The suffix is printed on the board's ethernet port sticker or shown in Buttons when it connects.
+
+> **SSH:** enabled — `ssh root@dpx-buttnode-XXXX.local` — password set at build time via `ROOT_PASSWORD` secret.
 
 ---
 
