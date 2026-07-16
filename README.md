@@ -282,12 +282,14 @@ Replace `orangepizero3` with any board ID from the [Armbian hardware list](https
 SSH is **enabled by default**. As soon as the board is on the network:
 
 ```bash
-ssh root@buttons-usb-relay.local
-# Password: 1234
-# Armbian forces a password change on first login
+ssh root@dpx-buttnode-XXXX.local
+# where XXXX is the last 4 hex chars of the board's MAC address
+# Password: set via ROOT_PASSWORD GitHub Secret at build time
 ```
 
 If mDNS isn't resolving, find the IP from your router and use that directly.
+
+> **Building your own images?** Set the `ROOT_PASSWORD` repository secret in GitHub → Settings → Secrets and variables → Actions. If not set, Armbian falls back to `1234` with a forced change on first login.
 
 ---
 
