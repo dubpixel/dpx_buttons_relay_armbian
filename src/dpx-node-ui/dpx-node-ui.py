@@ -64,9 +64,18 @@ def svc_active(name):
     return rc == 0
 
 
+def nmcli_available():
+    _, _, rc = run(["nmcli", "--version"])
+    return rc == 0
+
+
 def get_net_info():
-    """Return dict: mode, conn, ip_cidr, gateway, dns."""
-    info = {"mode": "unknown", "conn": "", "ip_cidr": "", "gateway": "", "dns": "8.8.8.8"}
+    """Return dict: mode, conn, ip_cidr, gateway, dns, nmcli (bool)."""
+    info = {"mode": "unknown", "conn": "", "ip_cidr": get_ip() + "/24",
+            "gateway": "", "dns": "8.8.8.8", "nmcli": False}
+    if not nmcli_available():
+        return info
+    info["nmcli"] = True
     out, _, rc = run(["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show", "--active"])
     if rc != 0:
         return info
@@ -81,17 +90,12 @@ def get_net_info():
                        "ipv4.method,ipv4.addresses,ipv4.gateway,ipv4.dns",
                        "connection", "show", info["conn"]])
     info["mode"] = "dhcp"
-    info["ip_cidr"] = get_ip() + "/24"
     for line in out2.splitlines():
         k, _, v = line.partition(":")
-        if k == "ipv4.method" and v == "manual":
-            info["mode"] = "static"
-        elif k == "ipv4.addresses" and v:
-            info["ip_cidr"] = v
-        elif k == "ipv4.gateway":
-            info["gateway"] = v
-        elif k == "ipv4.dns" and v:
-            info["dns"] = v.split(",")[0]
+        if k == "ipv4.method" and v == "manual": info["mode"] = "static"
+        elif k == "ipv4.addresses" and v: info["ip_cidr"] = v
+        elif k == "ipv4.gateway": info["gateway"] = v
+        elif k == "ipv4.dns" and v: info["dns"] = v.split(",")[0]
     return info
 
 
@@ -101,10 +105,13 @@ def get_usb_devices():
 
 
 def buttons_reachable():
+    """TCP-level check that Buttons is listening on port 3040."""
+    import socket as _sock
     try:
-        resp = urllib.request.urlopen(BUTTONS_API + "/", timeout=2)
-        return resp.status < 500
-    except Exception:
+        s = _sock.create_connection(("127.0.0.1", 3040), timeout=2)
+        s.close()
+        return True
+    except OSError:
         return False
 
 
@@ -329,9 +336,9 @@ def render_devices(alert="", alert_cls="a-ok"):
     usb    = get_usb_devices()
     api_ok = buttons_reachable()
     badge  = (
-        '<span class="badge badge-on">● reachable</span>'
+        '<span class="badge badge-on">● listening on :3040</span>'
         if api_ok else
-        '<span class="badge badge-off">○ not reachable</span>'
+        '<span class="badge badge-off">○ not reachable on :3040</span>'
     )
     body = f"""
 <div class="sec"><h2>Connected USB Devices</h2>
@@ -339,18 +346,16 @@ def render_devices(alert="", alert_cls="a-ok"):
     {''.join(f'<li>{esc(d)}</li>' for d in usb) if usb else '<li style="color:#8b949e">No USB devices detected</li>'}
   </ul>
 </div>
-<div class="sec"><h2>Identify / Blink</h2>
+<div class="sec"><h2>Buttons Service</h2>
   <p class="note">
-    Buttons API at <code>localhost:3040</code> {badge}<br>
-    Sends an identify request to flash the connected Stream Deck —
-    useful for locating this relay when multiple units are on the same network.
+    bitfocus-buttons-usb-relay {badge}<br>
+    Restart the service to reset the Stream Deck connection
+    (useful if the deck is unresponsive or showing the wrong page).
   </p>
-  <form method="POST" action="/identify">
-    <button type="submit" class="btn btn-p" {"disabled" if not api_ok else ""}>
-      ⚡ Blink Stream Deck
-    </button>
-    <a href="/" class="btn">Back</a>
+  <form method="POST" action="/restart-buttons" style="display:inline">
+    <button type="submit" class="btn btn-w">↺ Restart Buttons</button>
   </form>
+  <a href="/" class="btn">Back</a>
 </div>"""
     return page(body, "devices", alert, alert_cls)
 
@@ -393,7 +398,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         ok_msgs = {
             "hostname": "✓ Hostname updated — mDNS will reflect the change within a few seconds",
             "network":  "✓ Network settings applied",
-            "blink":    "✓ Identify request sent to Buttons API",
+            "restart":  "✓ Buttons service restarted",
         }
         err_msgs = {
             "api":     "✗ Buttons API did not respond — is bitfocus-buttons-usb-relay running?",
@@ -515,18 +520,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.redir("/?ok=network")
 
         # ── /identify ──────────────────────────────────────────────────────
-        elif path == "/identify":
-            try:
-                req = urllib.request.Request(
-                    f"{BUTTONS_API}/api/v1/identify",
-                    data=b"{}",
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                urllib.request.urlopen(req, timeout=3)
-                self.redir("/devices?ok=blink")
-            except Exception:
-                self.redir("/devices?err=api")
+        elif p == "/restart-buttons":
+            _, err, rc = run(["systemctl", "restart", "bitfocus-buttons-usb-relay"])
+            if rc != 0:
+                self.html(render_devices(alert=f"✗ restart failed: {esc(err)}", alert_cls="a-err"))
+                return
+            self.redir("/devices?ok=restart")
 
         else:
             self.html("<html><body><h1>Not found</h1></body></html>", 404)
