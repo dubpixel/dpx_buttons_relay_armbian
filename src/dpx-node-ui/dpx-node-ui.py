@@ -739,13 +739,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 # otherwise kill the socket and crash the server process).
                 _iface, _mode, _ip, _gw, _dns = iface, mode, ip_cidr, gw, dns
                 def _apply():
-                    time.sleep(1)  # ensure TCP teardown completes first
+                    import sys
+                    time.sleep(1)
+                    print(f"dpx-node-ui: apply start mode={_mode} iface={_iface} ip={_ip} gw={_gw}", file=sys.stderr, flush=True)
                     try:
                         write_networkd_config(_iface, _mode, _ip, _gw, _dns)
+                        print(f"dpx-node-ui: apply done", file=sys.stderr, flush=True)
                     except Exception as exc:
-                        import sys
-                        print(f"dpx-node-ui: network apply error: {exc}",
-                              file=sys.stderr, flush=True)
+                        print(f"dpx-node-ui: apply error: {exc}", file=sys.stderr, flush=True)
                 threading.Thread(target=_apply, daemon=True).start()
                 return
 
