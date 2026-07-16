@@ -99,6 +99,7 @@ jobs:
       matrix:
         board:
           - rockpi-s
+          - orangepizero3
     uses: ./.github/workflows/armbian-builder.yaml
     with:
       armbian-board: ${{ matrix.board }}

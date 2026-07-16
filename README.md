@@ -131,6 +131,7 @@ The following boards are built **automatically** on every new Buttons release an
 | Board | Armbian ID |
 |---|---|
 | [Rock Pi S](https://wiki.radxa.com/RockpiS) — [buy](https://shop.allnetchina.cn/products/rock-pi-s) | `rockpi-s` |
+| [Orange Pi Zero 3](http://www.orangepi.org/html/hardWare/computerAndMicrocontrollers/details/Orange-Pi-Zero-3.html) — [buy](https://www.aliexpress.com/item/1005005466373794.html) | `orangepizero3` |
 | [Rock Pi 4B](https://wiki.radxa.com/Rockpi4) | `rockpi-4b` |
 | [Rock Pi 4B+](https://wiki.radxa.com/Rockpi4) | `rockpi-4bplus` |
 | [Rock Pi S0](https://radxa.com/products/rockpi/s0) | `rock-s0` |
