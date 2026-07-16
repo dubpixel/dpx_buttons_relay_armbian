@@ -697,9 +697,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self.html(render_network("✗ Invalid IP address or gateway", "a-err"))
                     return
 
-                # Determine where to redirect AFTER the change takes effect
+                # Determine redirect target AFTER the change
+                hostname = get_hostname()
                 if mode == "dhcp":
-                    redirect = f"/network?ok=net-dhcp"
+                    # IP will change — use mDNS .local so browser can follow
+                    redirect = f"http://{hostname}.local:{PORT}/network?ok=net-dhcp"
                     msg     = "Switching to DHCP — your router will assign an IP."
                 else:
                     new_ip  = ip_cidr.split("/")[0]
@@ -723,8 +725,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(b)
                 self.wfile.flush()
 
-                # Now apply — browser already has the redirect page
-                write_networkd_config(iface, mode, ip_cidr, gw, dns)
+                # Apply — browser already has the page; errors here go to journal
+                try:
+                    write_networkd_config(iface, mode, ip_cidr, gw, dns)
+                except Exception as exc:
+                    import sys
+                    print(f"dpx-node-ui: network apply error: {exc}", file=sys.stderr, flush=True)
                 return
 
             # nmcli path
