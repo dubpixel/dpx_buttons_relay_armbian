@@ -24,6 +24,8 @@ BUTTONS_API    = "http://localhost:3040"
 NETWORKD_DIR   = Path("/etc/systemd/network")
 DPX_NET_FILE   = NETWORKD_DIR / "05-dpx-eth.network"   # 05- beats Netplan's 10-
 DPX_NET_OLD    = NETWORKD_DIR / "10-dpx-eth.network"   # remove if exists (old name)
+NETPLAN_DIR    = Path("/etc/netplan")
+DPX_NETPLAN    = NETPLAN_DIR / "99-dpx-override.yaml"  # highest priority, beats armbian 10-
 
 # ── System helpers ─────────────────────────────────────────────────────────────
 
@@ -86,6 +88,11 @@ def networkd_active():
     return rc == 0
 
 
+def netplan_available():
+    _, _, rc = run(["netplan", "version"])
+    return rc == 0
+
+
 def get_primary_iface():
     """First real Ethernet interface name from sysfs."""
     for p in sorted(Path("/sys/class/net").iterdir()):
@@ -129,7 +136,21 @@ def get_net_info():
 
     if networkd_active():
         info["networkd"] = True
-        # Read DPX-managed networkd file if present; otherwise assume DHCP
+        # Netplan override takes highest priority on Armbian
+        if DPX_NETPLAN.exists():
+            txt = DPX_NETPLAN.read_text()
+            if re.search(r"dhcp4:\s*true", txt):
+                info["mode"] = "dhcp"
+            else:
+                info["mode"] = "static"
+                m = re.search(r"-\s+(\d+\.\d+\.\d+\.\d+/\d+)", txt)
+                if m: info["ip_cidr"] = m.group(1)
+                m = re.search(r"via:\s+(\S+)", txt)
+                if m: info["gateway"] = m.group(1)
+                m = re.search(r"addresses:\s*\[(\S+)\]", txt)
+                if m: info["dns"] = m.group(1).rstrip(",]")
+            return info
+        # Fall back to raw networkd DPX file
         cfg = DPX_NET_FILE if DPX_NET_FILE.exists() else (DPX_NET_OLD if DPX_NET_OLD.exists() else None)
         if cfg:
             txt = cfg.read_text()
@@ -146,20 +167,34 @@ def get_net_info():
 
 
 def write_networkd_config(iface, mode, ip_cidr=None, gateway=None, dns="8.8.8.8"):
-    """Write 05-dpx-eth.network and apply immediately. Also restarts avahi + Buttons."""
-    NETWORKD_DIR.mkdir(parents=True, exist_ok=True)
-    # Remove old 10- file if present (renamed to 05- for Netplan priority)
-    if DPX_NET_OLD.exists():
-        DPX_NET_OLD.unlink()
-    if mode == "dhcp":
-        content = f"[Match]\nName={iface}\n\n[Network]\nDHCP=yes\n"
+    """Apply network config. Uses Netplan if available (Armbian), raw networkd otherwise."""
+    if netplan_available():
+        # Netplan: write 99-dpx-override.yaml — highest priority, beats Armbian's 10-dhcp wildcard
+        NETPLAN_DIR.mkdir(parents=True, exist_ok=True)
+        if mode == "dhcp":
+            content = (f"network:\n  version: 2\n  ethernets:\n    {iface}:\n"
+                       f"      dhcp4: true\n      dhcp6: false\n")
+        else:
+            content = (f"network:\n  version: 2\n  ethernets:\n    {iface}:\n"
+                       f"      dhcp4: false\n      dhcp6: false\n"
+                       f"      addresses:\n        - {ip_cidr}\n"
+                       f"      routes:\n        - to: default\n          via: {gateway}\n"
+                       f"      nameservers:\n        addresses: [{dns}]\n")
+        DPX_NETPLAN.write_text(content)
+        run(["netplan", "apply"])
     else:
-        content = (f"[Match]\nName={iface}\n\n"
-                   f"[Network]\nAddress={ip_cidr}\nGateway={gateway}\nDNS={dns}\n")
-    DPX_NET_FILE.write_text(content)
-    # reconfigure targets just this interface (faster + synchronous-ish vs reload)
-    run(["networkctl", "reconfigure", iface])
-    # Wait for IP to be assigned (poll up to 5s)
+        # Raw networkd fallback for boards without Netplan
+        NETWORKD_DIR.mkdir(parents=True, exist_ok=True)
+        if DPX_NET_OLD.exists():
+            DPX_NET_OLD.unlink()
+        if mode == "dhcp":
+            content = f"[Match]\nName={iface}\n\n[Network]\nDHCP=yes\n"
+        else:
+            content = (f"[Match]\nName={iface}\n\n"
+                       f"[Network]\nAddress={ip_cidr}\nGateway={gateway}\nDNS={dns}\n")
+        DPX_NET_FILE.write_text(content)
+        run(["networkctl", "reconfigure", iface])
+    # Poll until the new IP appears (up to 5s)
     target_ip = ip_cidr.split("/")[0] if ip_cidr else None
     for _ in range(10):
         time.sleep(0.5)
@@ -169,7 +204,7 @@ def write_networkd_config(iface, mode, ip_cidr=None, gateway=None, dns="8.8.8.8"
     # Re-announce mDNS on the new address
     run(["systemctl", "reload-or-restart", "avahi-daemon"])
     time.sleep(0.5)
-    # Reconnect Buttons to the new network
+    # Reconnect Buttons
     run(["systemctl", "restart", "bitfocus-buttons-usb-relay"])
 
 
