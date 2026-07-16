@@ -13,6 +13,7 @@ import os
 import re
 import socket
 import subprocess
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -733,12 +734,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(b)
                 self.wfile.flush()
 
-                # Apply — browser already has the page; errors here go to journal
-                try:
-                    write_networkd_config(iface, mode, ip_cidr, gw, dns)
-                except Exception as exc:
-                    import sys
-                    print(f"dpx-node-ui: network apply error: {exc}", file=sys.stderr, flush=True)
+                # Run the apply in a background thread so the HTTP connection
+                # closes cleanly BEFORE netplan changes the IP (which would
+                # otherwise kill the socket and crash the server process).
+                _iface, _mode, _ip, _gw, _dns = iface, mode, ip_cidr, gw, dns
+                def _apply():
+                    time.sleep(1)  # ensure TCP teardown completes first
+                    try:
+                        write_networkd_config(_iface, _mode, _ip, _gw, _dns)
+                    except Exception as exc:
+                        import sys
+                        print(f"dpx-node-ui: network apply error: {exc}",
+                              file=sys.stderr, flush=True)
+                threading.Thread(target=_apply, daemon=True).start()
                 return
 
             # nmcli path
