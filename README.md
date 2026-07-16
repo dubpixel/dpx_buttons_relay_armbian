@@ -33,6 +33,7 @@
 [![Issues][issues-shield]][issues-url]
 [![License][license-shield]][license-url]
 [![LinkedIn][linkedin-shield]][linkedin-url]
+[![Latest Release](https://img.shields.io/github/v/release/dubpixel/dpx_buttons_relay_armbian?label=latest%20release&color=blue&style=flat-square)](https://github.com/dubpixel/dpx_buttons_relay_armbian/releases/latest)
 </div>
 <!-- PROJECT LOGO -->
 <div align="center">
