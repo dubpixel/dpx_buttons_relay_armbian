@@ -705,14 +705,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return
 
                 # Determine redirect target AFTER the change
+                # Always use .local (mDNS) — avahi updates quickly and avoids
+                # ARP propagation delay when the IP itself changes.
                 hostname = get_hostname()
+                base_url = f"http://{hostname}.local:{PORT}"
                 if mode == "dhcp":
-                    # IP will change — use mDNS .local so browser can follow
-                    redirect = f"http://{hostname}.local:{PORT}/network?ok=net-dhcp"
-                    msg     = "Switching to DHCP — your router will assign an IP."
+                    redirect = f"{base_url}/network?ok=net-dhcp"
+                    msg     = "Switching to DHCP \u2014 your router will assign an IP."
                 else:
-                    new_ip  = ip_cidr.split("/")[0]
-                    redirect = f"http://{new_ip}:{PORT}/network?ok=net-static&ip={urllib.parse.quote(ip_cidr)}&gw={urllib.parse.quote(gw)}"
+                    redirect = f"{base_url}/network?ok=net-static&ip={urllib.parse.quote(ip_cidr)}&gw={urllib.parse.quote(gw)}"
                     msg     = f"Setting static IP to <code>{esc(ip_cidr)}</code> via <code>{esc(gw)}</code>."
 
                 # Send the 'applying' page BEFORE making the disruptive change.
@@ -720,10 +721,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 applying_html = page(f"""
 <div class="sec"><h2>Applying Network Changes…</h2>
   <p class="note" style="margin-bottom:10px">{msg}</p>
-  <p class="note">Redirecting in 5 seconds — if it doesn't load,
+  <p class="note">Redirecting in 8 seconds \u2014 if it doesn't load,
     go to <a href="{redirect}">{redirect}</a></p>
 </div>
-<meta http-equiv="refresh" content="5;url={redirect}">""", "network")
+<meta http-equiv="refresh" content="8;url={redirect}">""", "network")
                 b = applying_html.encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
