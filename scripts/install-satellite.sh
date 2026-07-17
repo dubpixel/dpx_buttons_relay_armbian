@@ -35,6 +35,13 @@ echo "==> Companion Satellite installed"
 systemctl disable satellite
 echo "==> satellite.service: installed but DISABLED (default mode: buttons)"
 
+# ── Fix HID device permissions ────────────────────────────────────────────────
+# The Buttons USB Relay package owns /dev/hidraw* via udev GROUP="buttons".
+# Satellite runs as the 'satellite' user — it needs to be in the buttons group
+# to open Stream Deck / HID surfaces when in satellite mode.
+usermod -aG buttons satellite
+echo "==> satellite user added to 'buttons' group (HID device access)"
+
 # ── Write mode persistence file ───────────────────────────────────────────────
 echo "buttons" > /etc/dpx-mode
 echo "==> /etc/dpx-mode: buttons (default)"
