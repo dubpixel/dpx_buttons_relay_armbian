@@ -354,6 +354,7 @@ input[type=text]:focus{outline:none;border-color:#1f6feb;box-shadow:0 0 0 3px #1
 .badge-on{background:#0d2a1a;color:#3fb950}.badge-off{background:#21262d;color:#8b949e}
 code{background:#21262d;padding:2px 6px;border-radius:4px;font-size:12px;font-family:ui-monospace,monospace}
 .note{font-size:12px;color:#8b949e;line-height:1.6;margin-bottom:14px}
+.footer{border-top:1px solid #21262d;margin-top:24px;padding:10px 16px;text-align:center;font-size:11px;color:#484f58;font-family:ui-monospace,monospace;letter-spacing:.2px}
 """
 
 # ── Page template ──────────────────────────────────────────────────────────────
@@ -373,6 +374,16 @@ def page(content, tab="status", alert="", alert_cls="a-ok"):
         f'<a href="{u}" class="{"on" if t == tab else ""}">{n}</a>'
         for t, u, n in tabs
     )
+    bld = get_build_info()
+    footer = (
+        f'<div class="footer">'
+        f'dpx-buttnode v{esc(bld["dpx_version"])}'
+        f' &nbsp;&middot;&nbsp; buttons {esc(bld["buttons_version"])}'
+        f' &nbsp;&middot;&nbsp; satellite {esc(bld["satellite_version"])}'
+        f' &nbsp;&middot;&nbsp; {esc(bld["git_branch"])}@{esc(bld["git_commit"])}'
+        f' &nbsp;&middot;&nbsp; built {esc(bld["build_date"])}'
+        f'</div>'
+    )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -386,6 +397,7 @@ def page(content, tab="status", alert="", alert_cls="a-ok"):
 <div class="hdr"><h1>⯁ {hostname}</h1><span class="tag">dpx-buttnode-ui</span></div>
 <nav class="nav">{nav}</nav>
 <div class="wrap">{al}{content}</div>
+{footer}
 </body>
 </html>"""
 
@@ -402,8 +414,6 @@ def render_status(alert="", alert_cls="a-ok"):
     usb     = get_usb_devices()
     mode    = get_dpx_mode()
     ss      = svc_active("satellite")
-    bld     = get_build_info()
-
     # Mode card: label + active service indicator + companion target if satellite
     if mode == "satellite":
         sat_host, sat_port = get_satellite_config()
@@ -431,15 +441,6 @@ def render_status(alert="", alert_cls="a-ok"):
 {mode_card}
   <div class="card"><div class="lbl">mDNS</div>
     <div class="val {'on' if av else 'off'}">{'active' if av else 'inactive'}</div></div>
-</div>
-<div class="sec" style="margin-top:12px">
-  <div style="font-size:11px;color:#8b949e;font-family:monospace;line-height:1.8">
-    dpx-buttnode v{esc(bld['dpx_version'])} &nbsp;|&nbsp;
-    buttons {esc(bld['buttons_version'])} &nbsp;|&nbsp;
-    satellite {esc(bld['satellite_version'])} &nbsp;|&nbsp;
-    {esc(bld['git_branch'])}@{esc(bld['git_commit'])} &nbsp;|&nbsp;
-    built {esc(bld['build_date'])}
-  </div>
 </div>
 <div class="sec"><h2>USB Devices</h2>
   <ul class="usb">
