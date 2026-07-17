@@ -46,7 +46,7 @@ install -m 0755 /tmp/dpx-set-hostname.sh /usr/local/bin/dpx-set-hostname.sh
 cat > /etc/systemd/system/dpx-set-hostname.service << 'UNIT'
 [Unit]
 Description=Set unique hostname from device MAC address (dpx-buttnode-XXXX)
-Documentation=https://github.com/dubpixel/dpx-buttnode
+Documentation=https://github.com/dubpixel/dpx_buttnode
 After=local-fs.target
 Before=network.target avahi-daemon.service
 
@@ -72,7 +72,7 @@ install -m 0755 /tmp/dpx-buttnode-ui.py /usr/local/bin/dpx-buttnode-ui.py
 cat > /etc/systemd/system/dpx-buttnode-ui.service << 'UNIT'
 [Unit]
 Description=DPX Buttnode UI — device configuration web interface (port 8080)
-Documentation=https://github.com/dubpixel/dpx-buttnode
+Documentation=https://github.com/dubpixel/dpx_buttnode
 After=network.target
 
 [Service]

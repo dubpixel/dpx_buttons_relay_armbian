@@ -33,11 +33,11 @@
 [![Issues][issues-shield]][issues-url]
 [![License][license-shield]][license-url]
 [![LinkedIn][linkedin-shield]][linkedin-url]
-[![Latest Release](https://img.shields.io/github/v/release/dubpixel/dpx-buttnode?label=dpx-buttnode&color=blue&style=flat-square)](https://github.com/dubpixel/dpx-buttnode/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/dubpixel/dpx_buttnode?label=dpx-buttnode&color=blue&style=flat-square)](https://github.com/dubpixel/dpx_buttnode/releases/latest)
 </div>
 <!-- PROJECT LOGO -->
 <div align="center">
-  <a href="https://github.com/dubpixel/dpx-buttnode">
+  <a href="https://github.com/dubpixel/dpx_buttnode">
     <img src="images/logo.png" alt="Logo" height="120">
   </a>
 <h1 align="center">dpx-buttnode</h1>
@@ -51,11 +51,11 @@
     Write the image, plug in your Stream Deck, power on — done.
     <br /><br />
      »  
-     <a href="https://github.com/dubpixel/dpx-buttnode/releases"><strong>Download a Release »</strong></a>
+     <a href="https://github.com/dubpixel/dpx_buttnode/releases"><strong>Download a Release »</strong></a>
      <br />
-    <a href="https://github.com/dubpixel/dpx-buttnode/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    <a href="https://github.com/dubpixel/dpx_buttnode/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     ·
-    <a href="https://github.com/dubpixel/dpx-buttnode/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+    <a href="https://github.com/dubpixel/dpx_buttnode/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
     </p>
 </div>
    <br />
@@ -134,7 +134,7 @@ A daily scheduled workflow checks whether the mirror release has a version that 
 
 ### Supported Boards
 
-The following boards are built **automatically** on every new Buttons release and published to [Releases](https://github.com/dubpixel/dpx-buttnode/releases):
+The following boards are built **automatically** on every new Buttons release and published to [Releases](https://github.com/dubpixel/dpx_buttnode/releases):
 
 | Board | Armbian ID |
 |---|---|
@@ -163,7 +163,7 @@ All 150+ [Armbian-supported boards](https://www.armbian.com/download/) are avail
 
 #### 1. Download the image
 
-Go to [**Releases**](https://github.com/dubpixel/dpx-buttnode/releases) and download the `.img.gz` for your board:
+Go to [**Releases**](https://github.com/dubpixel/dpx_buttnode/releases) and download the `.img.gz` for your board:
 
 ```
 rockpi-s-dpx-buttnode-0.1.0-beta.4.img.gz
@@ -241,7 +241,7 @@ The daily scheduled check at 06:00 UTC will detect the new version and automatic
 
 To trigger it **right now** instead of waiting:
 ```bash
-gh workflow run release-action.yaml --repo dubpixel/dpx-buttnode
+gh workflow run release-action.yaml --repo dubpixel/dpx_buttnode
 ```
 
 Watch it: **Actions → Release — dpx-buttnode Images → latest run**
@@ -262,7 +262,7 @@ Any of the 150+ Armbian-supported boards can be built on demand. The artifact is
 **Via terminal:**
 ```bash
 gh workflow run armbian-builder.yaml \
-  --repo dubpixel/dpx-buttnode \
+  --repo dubpixel/dpx_buttnode \
   -f armbian-board=orangepizero3
 ```
 
@@ -480,7 +480,7 @@ dns-sd -B _dpx-buttnode._tcp local     # macOS
 - [ ] SHA256 checksums attached to each release
 - [ ] WiFi pre-configuration support in image (via Armbian `wpa_supplicant` overlay)
 
-See the [open issues](https://github.com/dubpixel/dpx-buttnode/issues) for a full list of proposed features (and known issues).
+See the [open issues](https://github.com/dubpixel/dpx_buttnode/issues) for a full list of proposed features (and known issues).
 
 <!-- CONTRIBUTING -->
 ## Contributing
@@ -497,8 +497,8 @@ Don't forget to give the project a star! Thanks again!
 5. Open a Pull Request
 
 ### Top contributors:
-<a href="https://github.com/dubpixel/dpx-buttnode/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=dubpixel/dpx-buttnode" alt="contrib.rocks image" />
+<a href="https://github.com/dubpixel/dpx_buttnode/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=dubpixel/dpx_buttnode" alt="contrib.rocks image" />
 </a>
 
 <!-- LICENSE -->
@@ -509,7 +509,7 @@ Distributed under the [LICENSE_TYPE] License. See `LICENSE.txt` for more informa
 
   ### Joshua Fleitell - i@dubpixel.tv
 
-  Project Link: [https://github.com/dubpixel/dpx-buttnode](https://github.com/dubpixel/dpx-buttnode)
+  Project Link: [https://github.com/dubpixel/dpx_buttnode](https://github.com/dubpixel/dpx_buttnode)
 
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
@@ -714,16 +714,16 @@ Any board in [Armbian's supported hardware list](https://www.armbian.com/downloa
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/dubpixel/dpx-buttnode.svg?style=flat-square
-[contributors-url]: https://github.com/dubpixel/dpx-buttnode/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/dubpixel/dpx-buttnode.svg?style=flat-square
-[forks-url]: https://github.com/dubpixel/dpx-buttnode/network/members
-[stars-shield]: https://img.shields.io/github/stars/dubpixel/dpx-buttnode.svg?style=flat-square
-[stars-url]: https://github.com/dubpixel/dpx-buttnode/stargazers
-[issues-shield]: https://img.shields.io/github/issues/dubpixel/dpx-buttnode.svg?style=flat-square
-[issues-url]: https://github.com/dubpixel/dpx-buttnode/issues
-[license-shield]: https://img.shields.io/github/license/dubpixel/dpx-buttnode.svg?style=flat-square
-[license-url]: https://github.com/dubpixel/dpx-buttnode/blob/main/LICENSE.txt
+[contributors-shield]: https://img.shields.io/github/contributors/dubpixel/dpx_buttnode.svg?style=flat-square
+[contributors-url]: https://github.com/dubpixel/dpx_buttnode/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/dubpixel/dpx_buttnode.svg?style=flat-square
+[forks-url]: https://github.com/dubpixel/dpx_buttnode/network/members
+[stars-shield]: https://img.shields.io/github/stars/dubpixel/dpx_buttnode.svg?style=flat-square
+[stars-url]: https://github.com/dubpixel/dpx_buttnode/stargazers
+[issues-shield]: https://img.shields.io/github/issues/dubpixel/dpx_buttnode.svg?style=flat-square
+[issues-url]: https://github.com/dubpixel/dpx_buttnode/issues
+[license-shield]: https://img.shields.io/github/license/dubpixel/dpx_buttnode.svg?style=flat-square
+[license-url]: https://github.com/dubpixel/dpx_buttnode/blob/main/LICENSE.txt
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=flat-square&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/jfleitell
 [product-front]: images/front.png

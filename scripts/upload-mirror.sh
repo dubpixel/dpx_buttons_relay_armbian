@@ -17,7 +17,7 @@
 set -euo pipefail
 
 MIRROR_TAG="buttons-deb-mirror"
-REPO="dubpixel/dpx-buttnode"
+REPO="dubpixel/dpx_buttnode"
 
 # ── Validate input ───────────────────────────────────────────────────────────
 

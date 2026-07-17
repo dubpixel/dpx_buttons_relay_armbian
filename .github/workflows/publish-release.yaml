@@ -5,7 +5,7 @@ name: Publish Release from Existing Build
 #
 # Usage:
 #   gh workflow run publish-release.yaml \
-#     --repo dubpixel/dpx-buttnode \
+#     --repo dubpixel/dpx_buttnode \
 #     -f run-id=29445422833
 #
 # Or via GitHub web UI:

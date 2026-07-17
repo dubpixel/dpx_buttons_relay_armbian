@@ -93,7 +93,7 @@ Automated GitHub Actions build pipeline that produces flash-ready `.img.gz` Armb
 **Update Buttons to a new version:**
 ```bash
 ./scripts/upload-mirror.sh ~/Downloads/bitfocus-buttons-usb-relay-headless_X.Y.Z_arm64.tar.gz
-gh workflow run release-action.yaml --repo dubpixel/dpx-buttnode
+gh workflow run release-action.yaml --repo dubpixel/dpx_buttnode
 ```
 
 **Manual single-board test build:**
@@ -111,7 +111,7 @@ Edit `.github/workflows/release-action.yaml` under `matrix.board`, add the Armbi
 
 **Check what version is in the mirror:**
 ```bash
-gh release view buttons-deb-mirror --repo dubpixel/dpx-buttnode --json assets --jq '.assets[].name'
+gh release view buttons-deb-mirror --repo dubpixel/dpx_buttnode --json assets --jq '.assets[].name'
 ```
 
 ### Reference
