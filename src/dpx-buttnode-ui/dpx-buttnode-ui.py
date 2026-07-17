@@ -85,8 +85,7 @@ def get_ip_cidr():
 
 
 def svc_active(name):
-    _, _, rc = run(["systemctl", "is-active", "--quiet", name])
-    return rc == 0
+    return _cached(f"svc:{name}", 5, lambda: run(["systemctl", "is-active", "--quiet", name])[2] == 0)
 
 
 def nmcli_available():
@@ -226,6 +225,9 @@ def write_networkd_config(iface, mode, ip_cidr=None, gateway=None, dns="8.8.8.8"
 
 
 def get_usb_devices():
+    return _cached("usb_devices", 5, _get_usb_devices_raw)
+
+def _get_usb_devices_raw():
     out, _, _ = run(["lsusb"])
     return [l for l in out.splitlines() if l.strip()]
 
@@ -266,6 +268,9 @@ def usb_power_cycle(port_path, delay=2):
 
 
 def discover_buttnodes():
+    return _cached("buttnodes", 10, _discover_buttnodes_raw)
+
+def _discover_buttnodes_raw():
     """Return list of dpx-buttnode instances found via avahi-browse.
     Requires avahi-daemon running and the _dpx-buttnode._tcp service registered.
     Each entry: {hostname, addr, port, is_self}
@@ -619,6 +624,9 @@ def get_dpx_mode():
 RELEASE_FILE = Path("/etc/dpx-buttnode-release")
 
 def get_build_info():
+    return _cached("build_info", 3600, _get_build_info_raw)
+
+def _get_build_info_raw():
     """Return dict of build metadata from /etc/dpx-buttnode-release.
     Keys: dpx_version, buttons_version, git_branch, git_commit, build_date.
     Falls back to 'unknown' for any missing key.
@@ -1077,7 +1085,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    server = http.server.HTTPServer(("0.0.0.0", PORT), Handler)
+    server = http.server.ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"dpx-buttnode-ui listening on :{PORT}")
     try:
         server.serve_forever()
