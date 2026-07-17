@@ -6,21 +6,24 @@ This document provides operational directives for AI coding assistants (GitHub C
 
 ## PROJECT: dpx-buttnode
 
-**Status:** v0.4.0 complete (2026-07-16) ✅  
-**Branch:** `main`  
-**Version File:** `VERSION` (currently 0.4.0)
+**Status:** v0.5.0 complete (2026-07-17) ✅  
+**Branch:** `main` (feature/dpx-buttnode-rename-satellite pending PR)  
+**Version File:** `VERSION` (currently 0.5.0)
 
 ### Architecture (2-minute summary)
 
-Automated GitHub Actions build pipeline that produces flash-ready `.img.gz` Armbian images for ARM single-board computers (Orange Pi Zero family) with Bitfocus Buttons USB Relay (headless) pre-installed and auto-starting on boot. Two-stage build: (1) Armbian build framework compiles a minimal Ubuntu Noble base image for the target board, (2) HashiCorp Packer chroots into the image and installs the `.deb`, sets hostname, enables mDNS, and disables the first-login prompt. The Buttons package is distributed as a `.tar.gz` from Bitfocus's auth-gated portal — this project solves that by maintaining a self-hosted mirror release (`buttons-deb-mirror`) in the repo, so CI only needs the built-in `GITHUB_TOKEN`. No Bitfocus credentials ever touch CI.
+Automated GitHub Actions build pipeline that produces flash-ready `.img.gz` Armbian images for ARM single-board computers with **both Bitfocus Buttons USB Relay and Companion Satellite** pre-installed. Default mode is Buttons; switch to Satellite via the web UI or SSH — no re-flash needed. Two-stage build: (1) Armbian build framework compiles a minimal Ubuntu Noble base image for the target board, (2) HashiCorp Packer chroots into the image — installs the Buttons `.deb`, then builds Companion Satellite from source via the official `pi-image/install.sh` script (Node.js + Yarn, ~30–60 min extra). The Buttons package is distributed as a `.tar.gz` from Bitfocus's auth-gated portal — this project solves that by maintaining a self-hosted mirror release (`buttons-deb-mirror`) in the repo, so CI only needs the built-in `GITHUB_TOKEN`. No Bitfocus credentials ever touch CI.
 
 | Component | Tech/Location | Purpose | Notes |
 |-----------|---------------|---------|-------|
-| Packer build definition | HCL / `dpx-buttnode.pkr.hcl` | Chroot customization of Armbian image | Uses `arm-image` plugin v0.2.7; targets 5 GB image |
-| Install script | Bash / `scripts/install-buttons.sh` | Installs `.deb`, installs dpx-buttnode-ui + dpx-set-hostname, enables all services, registers mDNS service | Runs as root inside Packer shell provisioner |
-| Hostname script | Bash / `scripts/dpx-set-hostname.sh` | Sets `dpx-buttnode-XXXX` hostname from MAC on first boot | Reads MAC from sysfs (`/sys/class/net/<iface>/type`); oneshot service runs Before=network.target avahi-daemon.service |
-| Web UI | Python / `src/dpx-buttnode-ui/dpx-buttnode-ui.py` | Device config UI on port 8080: hostname, DHCP/static network, USB devices, node discovery, mode switch | Pure Python 3 stdlib; managed by `dpx-buttnode-ui.service` |
-| Download script | Bash / `scripts/download-buttons.sh` | Pulls `.tar.gz` from mirror release, extracts `.deb` | Primary: `gh release download`; fallback: `gh api /releases` list + `curl` direct URL |
+| Packer build definition | HCL / `dpx-buttnode.pkr.hcl` | Chroot customization of Armbian image | Uses `arm-image` plugin v0.2.7; targets 5 GB image; runs both install scripts |
+| Buttons install script | Bash / `scripts/install-buttons.sh` | Installs Buttons `.deb`, installs dpx-buttnode-ui + dpx-set-hostname, enables all services, registers mDNS | Runs as root inside Packer shell provisioner |
+| Satellite install script | Bash / `scripts/install-satellite.sh` | Installs Companion Satellite from source, disables it (buttons is default), adds `satellite` user to `buttons` group | Runs after `install-buttons.sh`; needs network inside chroot; ~30-60 min |
+| Hostname script | Bash / `scripts/dpx-set-hostname.sh` | Sets `dpx-buttnode-XXXX` hostname from MAC on first boot | Reads MAC from sysfs; oneshot service runs Before=network.target avahi-daemon.service |
+| Web UI | Python / `src/dpx-buttnode-ui/dpx-buttnode-ui.py` | Device config UI on port 8080: hostname, DHCP/static network, USB devices, node discovery, **mode switch** | Pure Python 3 stdlib; tabs: Status, Hostname, Network, Devices, Nodes, Mode |
+| Mode file | `/etc/dpx-mode` | Persists current mode (`buttons` or `satellite`) across reboots | Read by UI and by switch logic; written on mode change |
+| Satellite config | `/etc/dpx-satellite.conf` | Persists Companion server HOST/PORT | Written by UI POST /satellite-config; also stages `/boot/satellite-config` |
+| Download script | Bash / `scripts/download-buttons.sh` | Pulls `.tar.gz` from mirror release, extracts `.deb` | Primary: `gh release download`; fallback: `gh api /releases` list + `curl` |
 | Mirror upload helper | Bash / `scripts/upload-mirror.sh` | LOCAL script — uploads new Bitfocus package to mirror release | Run by maintainer when new Buttons version drops; requires `gh` auth |
 | Build workflow | YAML / `.github/workflows/armbian-builder.yaml` | Reusable: builds Armbian + downloads package + runs Packer + uploads artifact | Called by `release-action.yaml` or triggered manually |
 | Release workflow | YAML / `.github/workflows/release-action.yaml` | Daily cron version check + matrix build + GitHub Release publish | Compares mirror asset filename against latest release tag to detect new versions |
@@ -72,13 +75,18 @@ Automated GitHub Actions build pipeline that produces flash-ready `.img.gz` Armb
 
 ### Gotchas & Landmines
 
-1. **Armbian build framework is large and slow:** The `git clone --depth=1` of `armbian/build` takes several minutes. The full compile step is 30-60+ minutes per board. Don't expect fast CI feedback loops. Test Packer and script changes with a pre-built Armbian image locally if possible.
+1. **Armbian build framework is large and slow:** The `git clone --depth=1` of `armbian/build` takes several minutes. The full compile step is 30-60+ minutes per board. Companion Satellite adds another 30-60 min (Node.js + Yarn build inside chroot). Don't expect fast CI feedback loops.
 2. **`buttons-deb-mirror` must exist before first CI run:** Run `./scripts/upload-mirror.sh <tarball>` locally before triggering any workflow. The download step will fail with a 404 if the mirror release doesn't exist.
 3. **Debian version notation uses `~` for pre-release:** The `.deb` inside the tarball uses `0.1.0~beta.4` (tilde) but the tarball filename uses `0.1.0-beta.4` (dash). `download-buttons.sh` handles this — don't try to parse the `.deb` filename directly.
-4. **DO NOT disable IPv6:** Tried `ipv6.disable=1` in `armbianEnv.txt` and `NetworkManager ipv6.method=disabled` — both broke DHCP, the board got no IP at all. Armbian's network stack relies on IPv6 being present during interface bring-up. The board gets both IPv4 and IPv6 addresses naturally; Buttons USB Relay works fine on IPv4. Leave networking alone.
+4. **DO NOT disable IPv6:** Tried `ipv6.disable=1` in `armbianEnv.txt` and `NetworkManager ipv6.method=disabled` — both broke DHCP, the board got no IP at all. Armbian's network stack relies on IPv6 being present during interface bring-up. Leave networking alone.
 5. **Packer `arm-image` plugin requires `sudo`:** All `packer init` and `packer build` calls must be prefixed with `sudo`. The plugin modifies loop devices and mounts.
-6. **Netplan/networkd conflict on Armbian (Ubuntu Noble):** Armbian uses Netplan with `10-dhcp-all-interfaces.yaml` containing a wildcard `match: name: "e*"` DHCP config. `netplan apply` returns rc=1 when given a conflicting override file and deletes it. The working solution: write `/etc/systemd/network/09-dpx-<iface>.network` (the `09-` prefix sorts before Netplan's `10-`) AND delete `/run/systemd/network/10-netplan-all-eth-interfaces.network` before restarting networkd. For DHCP, delete the `09-` file and run `netplan generate` to restore the wildcard, then restart networkd.
-7. **`netplan version` is not a valid subcommand** on this Armbian build — use `Path("/usr/sbin/netplan").exists()` to detect Netplan instead of `netplan version`.
+6. **Netplan/networkd conflict on Armbian (Ubuntu Noble):** Armbian uses Netplan with `10-dhcp-all-interfaces.yaml` containing a wildcard `match: name: "e*"` DHCP config. `netplan apply` returns rc=1 when given a conflicting override file and deletes it. The working solution: write `/etc/systemd/network/09-dpx-<iface>.network` (the `09-` prefix sorts before Netplan's `10-`) AND delete `/run/systemd/network/10-netplan-all-eth-interfaces.network` before restarting networkd.
+7. **`netplan version` is not a valid subcommand** on this Armbian build — use `Path("/usr/sbin/netplan").exists()` to detect Netplan instead.
+8. **Satellite service name is `satellite`** (not `companion-satellite`). The official `pi-image/install.sh` creates a systemd unit named `satellite`. Never assume otherwise.
+9. **`/boot/satellite-config` is a one-shot import.** Satellite reads it on startup and resets the file to prevent re-import on next boot. Our persistent store is `/etc/dpx-satellite.conf`. The UI writes both on every save.
+10. **HID device permissions — `satellite` user must be in `buttons` group.** The Buttons USB Relay udev rules own `/dev/hidraw*` as `root:buttons`. The `satellite` service user needs `usermod -aG buttons satellite` to open Stream Decks. This is done in `install-satellite.sh`. If a device was installed before this fix, run it manually once.
+11. **Satellite udev rules:** Installed at `/etc/udev/rules.d/50-satellite.rules` by the official install script. They set `GROUP="satellite"` for known vendor IDs — but the Buttons rule (installed earlier) wins for Stream Decks. The group fix (gotcha #10) is the correct solution; do not delete or reorder udev rules.
+12. **Satellite REST API on port 9999:** `http://localhost:9999/api/config` — GET returns current config; POST `{"host":"...","port":16622}` updates it live. Used by the web UI's `/satellite-config` POST handler.
 
 ### Common Operations
 

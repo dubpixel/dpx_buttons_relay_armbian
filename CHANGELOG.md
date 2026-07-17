@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.5.0] - 2026-07-16
+## [0.5.0] - 2026-07-17
 
 ### Added
 - **Project rename:** `dpx_buttons_relay_armbian` → **`dpx-buttnode`** — repo name, artifact names,
@@ -23,17 +23,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Buttons USB Relay. Both are installed at image build time; only one runs at a time.
   - Default mode on first flash: **Buttons USB Relay** (satellite installed but disabled)
   - `scripts/install-satellite.sh` — installs Companion Satellite using the official install
-    script (`pi-image/install.sh`) inside the Packer chroot; leaves `satellite.service` disabled
+    script (`pi-image/install.sh`) inside the Packer chroot; leaves `satellite.service` disabled;
+    adds `satellite` user to `buttons` group for HID device access (Stream Deck udev fix)
   - `dpx-buttnode.pkr.hcl` — two new provisioners: copy + run `install-satellite.sh`
   - Mode persistence: `/etc/dpx-mode` stores `buttons` or `satellite` across reboots
   - Mode switching via `systemctl enable/disable` on each service
 - **Mode tab in `dpx-buttnode-ui`:** new "Mode" tab in the web UI for A/B switching
-  - Large mode badge (A — Buttons USB Relay / B — Companion Satellite)
-  - Service status chips for both `bitfocus-buttons-usb-relay` and `satellite`
+  - Large mode badge (BUTTONS / SATELLITE) with colour coding
+  - Service status for the active service
   - Switch button: stops+disables current service, enables+starts the other
   - Companion server config form: Host + Port (default 16622), saved to
     `/etc/dpx-satellite.conf` and `/boot/satellite-config`; POSTs to satellite REST API
     (`http://localhost:9999/api/config`) if satellite is currently running
+- **Mode status card on Status page:** Status tab now shows current mode (BUTTONS/SATELLITE),
+  active service status, and (in satellite mode) the configured Companion host:port
+- **HID device permission fix:** `satellite` user added to `buttons` group at build time so
+  Stream Decks are accessible when in satellite mode (udev owns `/dev/hidraw*` as `root:buttons`)
+- **Comprehensive README:** added Satellite mode usage section, Mode tab screenshots, terminal
+  mode-switch commands, Companion configuration instructions
 
 ### Changed
 - Artifact filename format: `{board}-dpx-buttnode-{version}-build{N}.img.gz`
