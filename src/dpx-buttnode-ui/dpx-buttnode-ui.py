@@ -379,6 +379,7 @@ def page(content, tab="status", alert="", alert_cls="a-ok"):
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{hostname} — dpx-buttnode-ui</title>
+<link rel="icon" type="image/png" href="/favicon.png">
 <style>{CSS}</style>
 </head>
 <body>
@@ -783,6 +784,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.html(render_nodes(alert, alert_cls))
         elif path == "/mode":
             self.html(render_mode(alert, alert_cls))
+        elif path in ("/favicon.png", "/favicon.ico"):
+            favicon = Path("/usr/local/bin/fav_icon.png")
+            if favicon.exists():
+                data = favicon.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "max-age=86400")
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self.send_response(404); self.end_headers()
         else:
             self.html("<html><body><h1>Not found</h1></body></html>", 404)
 

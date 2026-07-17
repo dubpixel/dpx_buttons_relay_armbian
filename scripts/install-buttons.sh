@@ -68,6 +68,7 @@ echo "==> dpx-set-hostname.service: enabled"
 echo "==> Installing dpx-buttnode-ui"
 
 install -m 0755 /tmp/dpx-buttnode-ui.py /usr/local/bin/dpx-buttnode-ui.py
+install -m 0644 /tmp/fav_icon.png     /usr/local/bin/fav_icon.png
 
 cat > /etc/systemd/system/dpx-buttnode-ui.service << 'UNIT'
 [Unit]

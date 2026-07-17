@@ -62,6 +62,11 @@ build {
     destination = "/tmp/dpx-buttnode-ui.py"
   }
 
+  provisioner "file" {
+    source      = "images/fav_icon.png"
+    destination = "/tmp/fav_icon.png"
+  }
+
   # System configuration (hostname, first-login cleanup, SSH)
   provisioner "shell" {
     inline = [
