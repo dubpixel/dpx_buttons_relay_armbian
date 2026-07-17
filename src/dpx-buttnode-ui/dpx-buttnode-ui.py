@@ -399,6 +399,22 @@ def render_status(alert="", alert_cls="a-ok"):
     av      = svc_active("avahi-daemon")
     net     = get_net_info()
     usb     = get_usb_devices()
+    mode    = get_dpx_mode()
+    ss      = svc_active("satellite")
+
+    # Mode card: label + active service indicator + companion target if satellite
+    if mode == "satellite":
+        sat_host, sat_port = get_satellite_config()
+        mode_detail = f'<div style="font-size:11px;color:#8b949e;margin-top:4px">{esc(sat_host) or "unconfigured"}:{esc(sat_port)}</div>' if sat_host else '<div style="font-size:11px;color:#8b949e;margin-top:4px">companion not configured</div>'
+        svc_label = f'<div class="val {"on" if ss else "off"}" style="font-size:13px">satellite {"active" if ss else "inactive"}</div>'
+    else:
+        mode_detail = ""
+        svc_label   = f'<div class="val {"on" if bs else "off"}" style="font-size:13px">buttons {"active" if bs else "inactive"}</div>'
+
+    mode_card = f"""  <div class="card"><div class="lbl">Mode</div>
+    <div class="val" style="font-size:16px;font-weight:700;{'color:#3fb950' if mode=='buttons' else 'color:#58a6ff'}">{mode.upper()}</div>
+    {svc_label}
+    {mode_detail}</div>"""
 
     grid = f"""
 <div class="grid">
@@ -410,8 +426,7 @@ def render_status(alert="", alert_cls="a-ok"):
     <div class="val" style="font-size:12px">{mac}</div></div>
   <div class="card"><div class="lbl">Network</div>
     <div class="val" style="font-size:14px">{esc(net['mode']).upper()}</div></div>
-  <div class="card"><div class="lbl">Buttons</div>
-    <div class="val {'on' if bs else 'off'}">{'active' if bs else 'inactive'}</div></div>
+{mode_card}
   <div class="card"><div class="lbl">mDNS</div>
     <div class="val {'on' if av else 'off'}">{'active' if av else 'inactive'}</div></div>
 </div>
