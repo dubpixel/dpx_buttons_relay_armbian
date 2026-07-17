@@ -479,6 +479,7 @@ dns-sd -B _dpx-buttnode._tcp local     # macOS
 - [ ] Additional board support (Banana Pi M2 Zero, NanoPi R4S, Orange Pi 5)
 - [ ] SHA256 checksums attached to each release
 - [ ] WiFi pre-configuration support in image (via Armbian `wpa_supplicant` overlay)
+- [ ] OTA image update — download latest release from GitHub and flash in-place (kexec into RAM, `dd` to SD, reboot)
 
 See the [open issues](https://github.com/dubpixel/dpx_buttnode/issues) for a full list of proposed features (and known issues).
 
