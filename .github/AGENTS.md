@@ -8,7 +8,7 @@ This document provides operational directives for AI coding assistants (GitHub C
 
 **Status:** v0.4.0 complete (2026-07-16) ✅  
 **Branch:** `main`  
-**Version File:** `VERSION` (currently 0.1.0)
+**Version File:** `VERSION` (currently 0.4.0)
 
 ### Architecture (2-minute summary)
 
@@ -17,8 +17,10 @@ Automated GitHub Actions build pipeline that produces flash-ready `.img.gz` Armb
 | Component | Tech/Location | Purpose | Notes |
 |-----------|---------------|---------|-------|
 | Packer build definition | HCL / `buttons-usb-relay.pkr.hcl` | Chroot customization of Armbian image | Uses `arm-image` plugin v0.2.7; targets 5 GB image |
-| Install script | Bash / `scripts/install-buttons.sh` | Installs `.deb` inside chroot, enables service + avahi | Runs as root inside Packer shell provisioner |
-| Download script | Bash / `scripts/download-buttons.sh` | Pulls `.tar.gz` from mirror release, extracts `.deb` | Uses `gh` CLI + `GITHUB_TOKEN`; writes `artifacts/buttons-version.txt` |
+| Install script | Bash / `scripts/install-buttons.sh` | Installs `.deb`, installs dpx-node-ui + dpx-set-hostname, enables all services, registers mDNS service | Runs as root inside Packer shell provisioner |
+| Hostname script | Bash / `scripts/dpx-set-hostname.sh` | Sets `dpx-buttnode-XXXX` hostname from MAC on first boot | Reads MAC from sysfs (`/sys/class/net/<iface>/type`); oneshot service runs Before=network.target avahi-daemon.service |
+| Web UI | Python / `src/dpx-node-ui/dpx-node-ui.py` | Device config UI on port 8080: hostname, DHCP/static network, USB devices, node discovery | Pure Python 3 stdlib; managed by `dpx-node-ui.service` |
+| Download script | Bash / `scripts/download-buttons.sh` | Pulls `.tar.gz` from mirror release, extracts `.deb` | Primary: `gh release download`; fallback: `gh api /releases` list + `curl` direct URL |
 | Mirror upload helper | Bash / `scripts/upload-mirror.sh` | LOCAL script — uploads new Bitfocus package to mirror release | Run by maintainer when new Buttons version drops; requires `gh` auth |
 | Build workflow | YAML / `.github/workflows/armbian-builder.yaml` | Reusable: builds Armbian + downloads package + runs Packer + uploads artifact | Called by `release-action.yaml` or triggered manually |
 | Release workflow | YAML / `.github/workflows/release-action.yaml` | Daily cron version check + matrix build + GitHub Release publish | Compares mirror asset filename against latest release tag to detect new versions |
@@ -75,6 +77,8 @@ Automated GitHub Actions build pipeline that produces flash-ready `.img.gz` Armb
 3. **Debian version notation uses `~` for pre-release:** The `.deb` inside the tarball uses `0.1.0~beta.4` (tilde) but the tarball filename uses `0.1.0-beta.4` (dash). `download-buttons.sh` handles this — don't try to parse the `.deb` filename directly.
 4. **DO NOT disable IPv6:** Tried `ipv6.disable=1` in `armbianEnv.txt` and `NetworkManager ipv6.method=disabled` — both broke DHCP, the board got no IP at all. Armbian's network stack relies on IPv6 being present during interface bring-up. The board gets both IPv4 and IPv6 addresses naturally; Buttons USB Relay works fine on IPv4. Leave networking alone.
 5. **Packer `arm-image` plugin requires `sudo`:** All `packer init` and `packer build` calls must be prefixed with `sudo`. The plugin modifies loop devices and mounts.
+6. **Netplan/networkd conflict on Armbian (Ubuntu Noble):** Armbian uses Netplan with `10-dhcp-all-interfaces.yaml` containing a wildcard `match: name: "e*"` DHCP config. `netplan apply` returns rc=1 when given a conflicting override file and deletes it. The working solution: write `/etc/systemd/network/09-dpx-<iface>.network` (the `09-` prefix sorts before Netplan's `10-`) AND delete `/run/systemd/network/10-netplan-all-eth-interfaces.network` before restarting networkd. For DHCP, delete the `09-` file and run `netplan generate` to restore the wildcard, then restart networkd.
+7. **`netplan version` is not a valid subcommand** on this Armbian build — use `Path("/usr/sbin/netplan").exists()` to detect Netplan instead of `netplan version`.
 
 ### Common Operations
 

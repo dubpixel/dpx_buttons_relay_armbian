@@ -75,6 +75,7 @@
       </ul>
     </li>
     <li><a href="#usage">Usage</a></li>
+    <li><a href="#dpx-node-ui">dpx-node-ui — Device Config UI</a></li>
     <li><a href="#reflection">Reflection</a></li>
     <li><a href="#roadmap">Roadmap</a></li>
     <li><a href="#contributing">Contributing</a></li>
@@ -94,7 +95,8 @@ The build pipeline is fully automated via GitHub Actions:
 <ol>
   <li>The Armbian build framework compiles a minimal Ubuntu Noble (24.04) base image for the target board.</li>
   <li>The Bitfocus Buttons USB Relay <code>.tar.gz</code> package is pulled from this repo's <code>buttons-deb-mirror</code> release (maintained manually — no Bitfocus account or secrets needed in CI).</li>
-  <li><a href="https://www.packer.io/">HashiCorp Packer</a> (with the <code>arm-image</code> plugin) chroots into the image and installs the <code>.deb</code>, enables the systemd service, sets the hostname to <code>buttons-usb-relay</code>, and removes the first-login prompt.</li>
+  <li>HashiCorp Packer chroots into the image, installs the <code>.deb</code>, enables the systemd service, sets a placeholder hostname of <code>dpx-buttnode</code>, enables mDNS, and removes the first-login prompt.</li>
+  <li>On first boot, <code>dpx-set-hostname.service</code> reads the board's Ethernet MAC address from sysfs and permanently sets the hostname to <code>dpx-buttnode-XXXX</code> (last 4 hex chars, e.g. <code>dpx-buttnode-C833</code>).</li>
   <li>The image is zeroed, gzip-compressed, and published as a GitHub Release.</li>
 </ol>
 
@@ -199,11 +201,11 @@ gunzip -c rockpi-s-buttons-usb-relay-0.1.0-beta.4.img.gz \
 
 **That's it.** Open **Bitfocus Buttons** on your computer — the relay appears automatically under discovered devices. No configuration needed.
 
-> **Hostname:** Each device gets a unique hostname derived from its MAC address: `dpx-buttnode-XXXX.local` where `XXXX` is the last 4 hex characters of the MAC (e.g. `dpx-buttnode-a3f2.local`). This is stable — the same board always gets the same name.
+> **Hostname:** Each device gets a unique hostname derived from its MAC address: `dpx-buttnode-XXXX.local` where `XXXX` is the last 4 hex characters of the MAC (e.g. `dpx-buttnode-C833.local`). This is stable — the same board always gets the same name.
 
-> **Finding your device:** Check your router's DHCP table, look for it in the Bitfocus Buttons discovered devices list, or run `ping dpx-buttnode-XXXX.local` once you know the suffix. The suffix is printed on the board's ethernet port sticker or shown in Buttons when it connects.
+> **Web UI:** A device config panel runs on port 8080: `http://dpx-buttnode-XXXX.local:8080` — change hostname, switch DHCP/static IP, manage devices, and discover other buttnodes on the network.
 
-> **SSH:** enabled — `ssh root@dpx-buttnode-XXXX.local` — password set at build time via `ROOT_PASSWORD` secret.
+> **SSH:** enabled — `ssh root@dpx-buttnode-XXXX.local` — default password `1234` (Armbian forces a change on first login).
 
 ---
 
@@ -281,6 +283,26 @@ Replace `orangepizero3` with any board ID from the [Armbian hardware list](https
 <!-- USAGE EXAMPLES -->
 ## Usage
 
+### dpx-node-ui — Device Config Web Interface
+
+Every device runs a lightweight web UI on **port 8080**:
+
+```
+http://dpx-buttnode-XXXX.local:8080
+```
+
+| Tab | What it does |
+|---|---|
+| **Status** | Hostname, IP, MAC, network mode, Buttons + mDNS service health, USB devices |
+| **Hostname** | Change the device hostname — applies immediately and persists across reboots |
+| **Network** | Switch between DHCP and static IP. Survives reboots. |
+| **Devices** | USB device list, Stream Deck USB power cycle, Buttons service restart |
+| **Nodes** | Discover all other `dpx-buttnode-*` units on the LAN with links to each web UI |
+
+> **Note:** The Network tab writes directly to `/etc/systemd/network/` and restarts `systemd-networkd`. After an IP change, navigate to the new address — the hostname (`dpx-buttnode-XXXX.local`) resolves correctly via mDNS within a few seconds.
+
+---
+
 ### SSH into the device
 
 SSH is **enabled by default**. As soon as the board is on the network:
@@ -288,12 +310,10 @@ SSH is **enabled by default**. As soon as the board is on the network:
 ```bash
 ssh root@dpx-buttnode-XXXX.local
 # where XXXX is the last 4 hex chars of the board's MAC address
-# Password: set via ROOT_PASSWORD GitHub Secret at build time
+# Default password: 1234 (Armbian forces a change on first login)
 ```
 
 If mDNS isn't resolving, find the IP from your router and use that directly.
-
-> **Building your own images?** Set the `ROOT_PASSWORD` repository secret in GitHub → Settings → Secrets and variables → Actions. If not set, Armbian falls back to `1234` with a forced change on first login.
 
 ---
 
@@ -336,15 +356,17 @@ sudo systemctl restart bitfocus-buttons-usb-relay
 
 ### Network discovery
 
-The device announces itself as `buttons-usb-relay.local` on port `3040`.
+The device announces itself as `dpx-buttnode-XXXX.local` on port `3040` (Buttons relay) and port `8080` (web UI).
 
 ```bash
 # Confirm it's on the network
-ping buttons-usb-relay.local
+ping dpx-buttnode-XXXX.local
 
-# Browse mDNS (from another machine)
-avahi-browse -t _buttons._tcp     # Linux
-dns-sd -B _buttons._tcp local     # macOS
+# Discover all buttnodes on the LAN
+avahi-browse -t _dpx-buttnode._tcp     # Linux
+dns-sd -B _dpx-buttnode._tcp local     # macOS
+
+# Or just open the Nodes tab in the web UI
 ```
 <!-- REFLECTION -->
 ## Reflection
@@ -363,6 +385,8 @@ dns-sd -B _buttons._tcp local     # macOS
 - [x] Matrix builds for Orange Pi Zero family
 - [x] Daily automated version check + GitHub Release publishing
 - [x] `upload-mirror.sh` helper for one-command package updates
+- [x] Dynamic MAC-derived hostname (`dpx-buttnode-XXXX`) on first boot
+- [x] `dpx-node-ui` — device config web UI on port 8080 (hostname, network, devices, node discovery)
 - [ ] Additional board support (Banana Pi M2 Zero, NanoPi R4S, Orange Pi 5)
 - [ ] SHA256 checksums attached to each release
 - [ ] WiFi pre-configuration support in image (via Armbian `wpa_supplicant` overlay)
