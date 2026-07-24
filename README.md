@@ -56,6 +56,8 @@
     <a href="https://github.com/dubpixel/dpx_buttnode/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     ·
     <a href="https://github.com/dubpixel/dpx_buttnode/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+    ·
+    <a href="https://github.com/dubpixel/dpx_raxda_rockpis">🖨️ 3D Case for Rock Pi S</a>
     </p>
 </div>
    <br />
