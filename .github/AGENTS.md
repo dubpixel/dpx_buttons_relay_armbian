@@ -115,6 +115,13 @@ Edit `.github/workflows/release-action.yaml` under `matrix.board`, add the Armbi
 gh release view buttons-deb-mirror --repo dubpixel/dpx_buttnode --json assets --jq '.assets[].name'
 ```
 
+### Skills Available
+
+| Skill | When to invoke | What it does |
+|-------|----------------|--------------|
+| `screenshot-html-preview` | After editing `dpx-buttnode-ui.py` or HTML preview files | Python source → static HTML mocks → pixel-accurate screenshots in `images/` |
+| `update-docs` | Bumping version, updating README, CHANGELOG, or release prep | Semver bump, changelog entry, README accuracy check, roadmap grooming |
+
 ### Reference
 
 **Source of truth for Buttons USB Relay installation and configuration:**
