@@ -8,7 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
--
+- `update-docs` skill (`.github/skills/update-docs/SKILL.md`) — full documentation audit workflow for dpx_buttnode
+- README: `images/front.png` hardware photo added between hero section and TOC
+- README: UI screenshots grid (`001–006_*.jpe`) replacing placeholder image paths in Usage section
+- README: 📸 Screenshots quick link added next to 3D Case link in hero
+- README: `#dpx-buttnode-ui` section promoted to top-level heading so TOC and Screenshots link anchor correctly
+- README: satisfied `<!--todo-->` comments removed
+- AGENTS.md: `html/` folder added to architecture table for UI preview pages
+- ROADMAP.md: checkboxes added to planned items; Nodes tab marked as shipped
 
 ---
 

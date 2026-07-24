@@ -6,7 +6,7 @@ This document provides operational directives for AI coding assistants (GitHub C
 
 ## PROJECT: dpx-buttnode
 
-**Status:** v0.5.0 complete (2026-07-17) ✅  
+**Status:** v0.5.0 complete (2026-07-24) ✅  
 **Branch:** `main` (feature/dpx-buttnode-rename-satellite pending PR)  
 **Version File:** `VERSION` (currently 0.5.0)
 
@@ -21,6 +21,7 @@ Automated GitHub Actions build pipeline that produces flash-ready `.img.gz` Armb
 | Satellite install script | Bash / `scripts/install-satellite.sh` | Installs Companion Satellite from source, disables it (buttons is default), adds `satellite` user to `buttons` group | Runs after `install-buttons.sh`; needs network inside chroot; ~30-60 min |
 | Hostname script | Bash / `scripts/dpx-set-hostname.sh` | Sets `dpx-buttnode-XXXX` hostname from MAC on first boot | Reads MAC from sysfs; oneshot service runs Before=network.target avahi-daemon.service |
 | Web UI | Python / `src/dpx-buttnode-ui/dpx-buttnode-ui.py` | Device config UI on port 8080: hostname, DHCP/static network, USB devices, node discovery, **mode switch** | Pure Python 3 stdlib; tabs: Status, Hostname, Network, Devices, Nodes, Mode |
+| UI preview pages | HTML / `html/dpx-buttnode-ui-*.html` | Static mock previews of each UI tab for screenshots and dev reference | Moved to `html/` subfolder; file map in `.github/skills/screenshot-html-preview/SKILL.md` |
 | Mode file | `/etc/dpx-mode` | Persists current mode (`buttons` or `satellite`) across reboots | Read by UI and by switch logic; written on mode change |
 | Satellite config | `/etc/dpx-satellite.conf` | Persists Companion server HOST/PORT | Written by UI POST /satellite-config; also stages `/boot/satellite-config` |
 | Download script | Bash / `scripts/download-buttons.sh` | Pulls `.tar.gz` from mirror release, extracts `.deb` | Primary: `gh release download`; fallback: `gh api /releases` list + `curl` |

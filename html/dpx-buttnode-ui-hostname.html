@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>dpx-buttnode-8A2F — dpx-buttnode-ui</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e1e4e8}
+a{color:#388bfd;text-decoration:none}
+.hdr{background:#161b22;border-bottom:1px solid #30363d;padding:14px 24px;display:flex;align-items:center;gap:10px}
+.hdr h1{font-size:17px;font-weight:700;color:#f0f6ff;letter-spacing:-.3px}
+.tag{background:#1f6feb;color:#fff;font-size:10px;padding:2px 8px;border-radius:12px;font-weight:700;letter-spacing:.3px}
+.nav{background:#161b22;border-bottom:1px solid #21262d;padding:0 24px;display:flex;gap:2px;overflow-x:auto}
+.nav a{display:inline-block;padding:10px 14px;font-size:13px;color:#8b949e;border-bottom:2px solid transparent;white-space:nowrap}
+.nav a.on,.nav a:hover{color:#f0f6ff;border-bottom-color:#1f6feb}
+.wrap{max-width:880px;margin:0 auto;padding:24px 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-bottom:20px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px}
+.lbl{font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.val{font-size:17px;font-weight:700;color:#f0f6ff;font-family:ui-monospace,monospace;word-break:break-all}
+.val.on{color:#3fb950}.val.off{color:#f85149}
+.sec{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;margin-bottom:14px}
+.sec h2{font-size:12px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #21262d}
+.row{margin-bottom:12px}
+.row label{display:block;font-size:12px;color:#8b949e;margin-bottom:4px}
+input[type=text]{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px 12px;color:#f0f6ff;font-size:14px;font-family:ui-monospace,monospace}
+input[type=text]:focus{outline:none;border-color:#1f6feb;box-shadow:0 0 0 3px #1f6feb22}
+.btn{background:#21262d;border:1px solid #30363d;color:#f0f6ff;padding:8px 16px;border-radius:6px;font-size:13px;cursor:pointer;display:inline-block;margin-right:6px;font-family:inherit}
+.btn-p{background:#1f6feb;border-color:#1f6feb}.btn-p:hover{background:#388bfd}
+.btn-w{background:#9e6a03;border-color:#9e6a03}.btn-w:hover{background:#b07d12}
+.alert{padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:16px;line-height:1.5}
+.a-ok{background:#0d2a1a;border:1px solid #3fb950;color:#3fb950}
+.a-err{background:#2a0d0d;border:1px solid #f85149;color:#f85149}
+.a-warn{background:#2a1d00;border:1px solid #9e6a03;color:#d4a017}
+.radios{display:flex;gap:16px;margin-bottom:14px}
+.radios label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px}
+.usb{list-style:none}
+.usb li{font-family:ui-monospace,monospace;font-size:12px;color:#8b949e;padding:5px 0;border-bottom:1px solid #21262d}
+.usb li:last-child{border:none}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600}
+.badge-on{background:#0d2a1a;color:#3fb950}.badge-off{background:#21262d;color:#8b949e}
+code{background:#21262d;padding:2px 6px;border-radius:4px;font-size:12px;font-family:ui-monospace,monospace}
+.note{font-size:12px;color:#8b949e;line-height:1.6;margin-bottom:14px}
+.footer{border-top:1px solid #21262d;margin-top:24px;padding:10px 16px;text-align:center;font-size:11px;color:#484f58;font-family:ui-monospace,monospace;letter-spacing:.2px}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>⯁ dpx-buttnode-8A2F</h1>
+  <span class="tag">dpx-buttnode-ui</span>
+</div>
+
+<nav class="nav">
+  <a href="#">Status</a>
+  <a href="#" class="on">Hostname</a>
+  <a href="#">Network</a>
+  <a href="#">Devices</a>
+  <a href="#">Nodes</a>
+  <a href="#">Mode</a>
+</nav>
+
+<div class="wrap">
+  <div class="sec">
+    <h2>Change Hostname</h2>
+    <p class="note">
+      Current hostname: <code>dpx-buttnode-8A2F</code><br>
+      mDNS address: <code>dpx-buttnode-8A2F.local</code><br>
+      The new hostname is applied immediately and persists across reboots.
+    </p>
+    <form method="POST" action="/hostname">
+      <div class="row">
+        <label>New hostname (letters, numbers, hyphens — no spaces)</label>
+        <input type="text" name="hostname" value="dpx-buttnode-8A2F"
+               placeholder="dpx-buttnode-XXXX">
+      </div>
+      <button type="submit" class="btn btn-p">Apply</button>
+      <a href="/" class="btn">Cancel</a>
+    </form>
+  </div>
+</div>
+
+<div class="footer">
+  dpx-buttnode v0.5.0 &nbsp;&middot;&nbsp; buttons 0.1.0-beta.4 &nbsp;&middot;&nbsp; satellite 1.9.1 &nbsp;&middot;&nbsp; main@a3f7c12 &nbsp;&middot;&nbsp; built 2026-07-17
+</div>
+
+</body>
+</html>
